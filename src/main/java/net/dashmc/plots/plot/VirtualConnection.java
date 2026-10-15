@@ -2,6 +2,7 @@ package net.dashmc.plots.plot;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -24,6 +25,7 @@ import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.helpers.ChestHelper;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
+import net.minecraft.server.v1_8_R3.MinecraftServer;
 import net.minecraft.server.v1_8_R3.Packet;
 import net.minecraft.server.v1_8_R3.PacketListenerPlayIn;
 import net.minecraft.server.v1_8_R3.PacketListenerPlayOut;
@@ -74,6 +76,7 @@ public class VirtualConnection {
 			return;
 
 		boolean isEntering = to == true && insideACRegion == false;
+		insideACRegion = isEntering;
 		ACRegionEnterExit event = new ACRegionEnterExit(this, isEntering);
 		Bukkit.getPluginManager().callEvent(event);
 	}
@@ -83,6 +86,7 @@ public class VirtualConnection {
 			return;
 
 		boolean isEntering = to == true && insideEnvironment == false;
+		insideEnvironment = isEntering;
 		EnvironmentEnterExit event = new EnvironmentEnterExit(this, isEntering);
 		Bukkit.getPluginManager().callEvent(event);
 	}
@@ -233,16 +237,21 @@ public class VirtualConnection {
 		@SuppressWarnings("unchecked")
 		@Override
 		public void channelRead(ChannelHandlerContext chx, Object obj) throws Exception {
-			if (!(obj instanceof Packet)) {
+			if (!(obj instanceof Packet) || packetModifiers.containsKey(obj.getClass())) {
 				super.channelRead(chx, obj);
 				return;
 			}
 
 			Packet<PacketListenerPlayIn> packet = (Packet<PacketListenerPlayIn>) obj;
-			if (intercept(packet))
-				return;
-
-			super.channelRead(chx, packet);
+			MinecraftServer.getServer().postToMainThread(() -> {
+				try {
+					if (!injected || !intercept(packet))
+						packet.a(player.playerConnection);
+				} catch (Throwable t) {
+					Bukkit.getLogger().log(Level.SEVERE,
+							"Failed handling " + packet.getClass().getSimpleName() + " for " + player.getName(), t);
+				}
+			});
 		}
 
 		@Override
