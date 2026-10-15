@@ -74,44 +74,33 @@ public class BlockBag implements IDataHolder {
 			break;
 		}
 
-		BlockBagUpdatedEvent event = createAndCallUpdateEvent(false, false);
-		if (event.isCancelled())
-			throw new UnsupportedOperationException();
+		callUpdateEvent(false);
 	}
 
 	public void addAll(ItemStack[] items) {
-		PreBlockBagDepositEvent preUpdateEvent = new PreBlockBagDepositEvent(items, this);
-		Bukkit.getPluginManager().callEvent(preUpdateEvent);
-		if (preUpdateEvent.isCancelled())
+		PreBlockBagDepositEvent pre = new PreBlockBagDepositEvent(items, this);
+		Bukkit.getPluginManager().callEvent(pre);
+		if (pre.isCancelled())
 			return;
 
-		items = preUpdateEvent.getItems();
-
-		for (ItemStack item : items) {
+		for (ItemStack item : pre.getItems()) {
 			if (item == null)
 				continue;
-
 			add(item, false, true);
 		}
 
-		BlockBagUpdatedEvent event = createAndCallUpdateEvent(true, false);
-		if (!event.isCancelled())
-			return;
-
-		for (int i = 0; i < items.length; i++)
-			bag.removeLast();
-
+		callUpdateEvent(true);
 	}
 
-	private void add(ItemStack item, boolean callEvents, boolean tryAddToPlayerInventory) {
+	private boolean add(ItemStack item, boolean callEvents, boolean tryAddToPlayerInventory) {
 		if (item == null)
-			return;
+			return false;
 
 		if (callEvents) {
 			PreBlockBagDepositEvent preUpdateEvent = new PreBlockBagDepositEvent(item, this);
 			Bukkit.getPluginManager().callEvent(preUpdateEvent);
 			if (preUpdateEvent.isCancelled())
-				return;
+				return false;
 
 			if (preUpdateEvent.getItems().length != 1)
 				// this should never happen as it's currently declared final - but that might
@@ -120,27 +109,22 @@ public class BlockBag implements IDataHolder {
 
 			item = preUpdateEvent.getItems()[0];
 			if (item == null)
-				return;
+				return false;
 		}
 
-		if (tryAddToPlayerInventory) {
-			boolean hasSpace = player.inventory.pickup(item);
-			if (hasSpace)
-				return;
-		}
+		if (tryAddToPlayerInventory && player.inventory.pickup(item))
+			return false;
 
 		bag.addLast(item);
-
 		if (callEvents)
-			createAndCallUpdateEvent(true, true);
+			callUpdateEvent(true);
+
+		return true;
 	}
 
-	private BlockBagUpdatedEvent createAndCallUpdateEvent(boolean isDeposit, boolean removeIfCancelled) {
+	private BlockBagUpdatedEvent callUpdateEvent(boolean isDeposit) {
 		BlockBagUpdatedEvent event = new BlockBagUpdatedEvent(isDeposit, this);
 		Bukkit.getPluginManager().callEvent(event);
-		if (event.isCancelled())
-			bag.removeLast();
-
 		return event;
 	}
 
