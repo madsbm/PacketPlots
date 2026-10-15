@@ -75,20 +75,16 @@ public class VirtualConnection {
 		if (to == insideACRegion)
 			return;
 
-		boolean isEntering = to == true && insideACRegion == false;
-		insideACRegion = isEntering;
-		ACRegionEnterExit event = new ACRegionEnterExit(this, isEntering);
-		Bukkit.getPluginManager().callEvent(event);
+		insideACRegion = to;
+		Bukkit.getPluginManager().callEvent(new ACRegionEnterExit(this, to));
 	}
 
 	public void setInsideEnvironment(boolean to) {
 		if (to == insideEnvironment)
 			return;
 
-		boolean isEntering = to == true && insideEnvironment == false;
-		insideEnvironment = isEntering;
-		EnvironmentEnterExit event = new EnvironmentEnterExit(this, isEntering);
-		Bukkit.getPluginManager().callEvent(event);
+		insideEnvironment = to;
+		Bukkit.getPluginManager().callEvent(new EnvironmentEnterExit(this, to));
 	}
 
 	@Setter
