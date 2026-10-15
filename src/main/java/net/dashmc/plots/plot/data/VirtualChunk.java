@@ -118,10 +118,8 @@ public class VirtualChunk implements IDataHolder {
 			if (newBlock == Blocks.AIR)
 				return false;
 
-			ChunkSection chunkSection = getChunk().getSections()[yPos];
-			if (chunkSection == null)
-				chunkSection = new ChunkSection(yPos, !world.worldProvider.o());
-			section = new Section(chunkSection);
+			ChunkSection real = getChunk().getSections()[yPos];
+			section = real != null ? new Section(real) : new Section(yPos);
 			sections[yPos] = section;
 			sectionMask |= 1 << yPos;
 		}
