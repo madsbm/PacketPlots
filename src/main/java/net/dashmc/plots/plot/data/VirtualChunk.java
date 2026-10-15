@@ -3,6 +3,7 @@ package net.dashmc.plots.plot.data;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -235,18 +236,14 @@ public class VirtualChunk implements IDataHolder {
 		}
 
 		stream.writeInt(tileEntities.size());
-		tileEntities.forEach((pos, tile) -> {
-			try {
-				NBTTagCompound compound = new NBTTagCompound();
-				tile.b(compound);
+		for (TileEntity tile : tileEntities.values()) {
+			NBTTagCompound compound = new NBTTagCompound();
+			tile.b(compound);
 
-				Debug.log("Saved tile with NBT " + compound.toString());
+			Debug.log("Saved tile with NBT " + compound.toString());
 
-				NBTHelper.writePayload(stream, compound);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		});
+			NBTHelper.writePayload(stream, compound);
+		}
 	}
 
 	@Override
@@ -345,13 +342,17 @@ public class VirtualChunk implements IDataHolder {
 			ChunkSection real = getChunk().getSections()[chunkY];
 			this.blockIds = real != null ? real.getIdArray().clone() : new char[4096];
 
-			region.forEachInside(this, (x, y, z) -> {
-				try {
-					blockIds[(y & 0xF) << 8 | (z & 0xF) << 4 | (x & 0xF)] = stream.readChar();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			});
+			try {
+				region.forEachInside(this, (x, y, z) -> {
+					try {
+						blockIds[(y & 0xF) << 8 | (z & 0xF) << 4 | (x & 0xF)] = stream.readChar();
+					} catch (IOException e) {
+						throw new UncheckedIOException(e);
+					}
+				});
+			} catch (UncheckedIOException e) {
+				throw e.getCause();
+			}
 		}
 
 		@Override
@@ -359,13 +360,17 @@ public class VirtualChunk implements IDataHolder {
 			stream.writeChar(this.nonEmptyBlockCount);
 
 			CuboidRegion region = getEnvironment().getRegion();
-			region.forEachInside(this, (x, y, z) -> {
-				try {
-					stream.writeChar(blockIds[(y & 0xF) << 8 | (z & 0xF) << 4 | (x & 0xF)]);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			});
+			try {
+				region.forEachInside(this, (x, y, z) -> {
+					try {
+						stream.writeChar(blockIds[(y & 0xF) << 8 | (z & 0xF) << 4 | (x & 0xF)]);
+					} catch (IOException e) {
+						throw new UncheckedIOException(e);
+					}
+				});
+			} catch (UncheckedIOException e) {
+				throw e.getCause();
+			}
 		}
 
 		public IBlockData getType(byte x, byte y, byte z) {
