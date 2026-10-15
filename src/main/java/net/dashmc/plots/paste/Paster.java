@@ -64,7 +64,7 @@ public class Paster {
 		}
 
 		int nonEmptyChunkSections = Integer.bitCount(map.b);
-		int metaStartIdx = nonEmptyChunkSections * 2 * 16 * 16 * 16 + nonEmptyChunkSections * 16 * 16 * 8;
+		int metaStartIdx = nonEmptyChunkSections * 2 * 16 * 16 * 16;
 
 		int idPointer = 0;
 		int sectionIndex = 0;

@@ -35,7 +35,8 @@ public class RenderPipeline {
 		ChunkMap map = getChunkMap(chunk, mask, includeBiome);
 
 		int nonEmptyChunkSections = Integer.bitCount(map.b);
-		int metaStartIdx = calculateNeededBytes(nonEmptyChunkSections, false, false);
+		// block ids are 2 bytes each - light and biome data follow them
+		int metaStartIdx = nonEmptyChunkSections * 2 * 16 * 16 * 16;
 
 		transformers.forEach((consumer) -> consumer.accept(chunk, map, metaStartIdx));
 		return map;
