@@ -282,10 +282,10 @@ public class CuboidEnvironment extends Environment {
 		deserialize(stream);
 
 		Player owner = getOwner();
-		EntityPlayer nmsOwner = ((CraftPlayer) owner).getHandle();
 		if (owner == null || !owner.isOnline())
 			throw new IOException("Tried initialization of CuboidEnvironment for offline player: " + ownerUuid);
 
+		EntityPlayer nmsOwner = ((CraftPlayer) owner).getHandle();
 		createEnvironment(owner);
 		startVirtualization(nmsOwner);
 	}
