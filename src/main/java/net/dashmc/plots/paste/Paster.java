@@ -1,6 +1,7 @@
 package net.dashmc.plots.paste;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -55,6 +56,12 @@ public class Paster {
 
 		nmsChunk.f(true);
 		nmsChunk.mustSave = true;
+
+		// remove tiles in the sections about to be overwritten - World#t is removeTileEntity
+		for (BlockPosition pos : new ArrayList<>(nmsChunk.getTileEntities().keySet())) {
+			if ((map.b & 1 << (pos.getY() >> 4)) != 0)
+				nmsChunk.getWorld().t(pos);
+		}
 
 		int nonEmptyChunkSections = Integer.bitCount(map.b);
 		int metaStartIdx = nonEmptyChunkSections * 2 * 16 * 16 * 16 + nonEmptyChunkSections * 16 * 16 * 8;
