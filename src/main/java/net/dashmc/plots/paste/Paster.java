@@ -92,7 +92,7 @@ public class Paster {
 
 		nmsChunk.initLighting();
 
-		for (Packet<?> updatePacket : initializeTiles(chunk)) {
+		for (Packet<?> updatePacket : initializeTiles(chunk, nmsChunk)) {
 			for (Player player : Bukkit.getServer().getOnlinePlayers()) {
 				EntityPlayer nmsPlayer = ((CraftPlayer) player).getHandle();
 				nmsPlayer.playerConnection.sendPacket(updatePacket);
@@ -102,42 +102,45 @@ public class Paster {
 		return true;
 	}
 
-	public static List<Packet<?>> initializeTiles(VirtualChunk vChunk) {
+	public static List<Packet<?>> initializeTiles(VirtualChunk vChunk, Chunk target) {
 		List<Packet<?>> updatePackets = new LinkedList<>();
+		IEnvironment env = vChunk.getEnvironment();
 
-		IEnvironment environment = vChunk.getEnvironment();
-		Chunk chunk = vChunk.getChunk();
+		int srcX = vChunk.getCoordPair().x << 4, srcZ = vChunk.getCoordPair().z << 4;
+		int dstX = target.locX << 4, dstZ = target.locZ << 4;
 
-		ChunkCoordIntPair vOffset = vChunk.getCoordPair();
+		for (ChunkSection section : target.getSections()) {
+			if (section == null)
+				continue;
 
-		int offsetX = chunk.locX;
-		int offsetZ = chunk.locZ;
-
-		for (ChunkSection section : chunk.getSections()) {
+			int baseY = section.getYPosition();
 			char[] ids = section.getIdArray();
-			for (int idx = 0; idx < ids.length; idx++) {
-				char id = ids[idx];
-				IBlockData ibd = Block.d.a(id);
-				Block block = ibd.getBlock();
 
-				if (!block.isTileEntity())
+			for (int idx = 0; idx < ids.length; idx++) {
+				IBlockData ibd = Block.d.a(ids[idx]);
+				if (ibd == null || !ibd.getBlock().isTileEntity())
 					continue;
 
-				int x = (idx & 0xF);
-				int y = (idx >> 8) & 0xFF;
-				int z = ((idx >> 4) & 0xF);
+				int x = idx & 0xF;
+				int y = baseY + ((idx >> 8) & 0xF);
+				int z = (idx >> 4) & 0xF;
 
-				TileEntity virtualizedTile = environment
-						.getTileEntity(
-								new BlockPosition(x + vOffset.x, y, z + vOffset.z));
+				TileEntity source = env.getTileEntity(new BlockPosition(srcX + x, y, srcZ + z));
+				if (source == null)
+					continue;
 
-				NBTTagCompound compound = new NBTTagCompound();
-				virtualizedTile.b(compound);
+				BlockPosition dst = new BlockPosition(dstX + x, y, dstZ + z);
+				NBTTagCompound nbt = new NBTTagCompound();
+				source.b(nbt);
+				nbt.setInt("x", dst.getX());
+				nbt.setInt("y", dst.getY());
+				nbt.setInt("z", dst.getZ());
 
-				TileEntity tile = ((IContainer) block).a(chunk.world, id);
-				tile.a(compound);
+				Block block = ibd.getBlock();
+				TileEntity tile = ((IContainer) block).a(target.world, block.toLegacyData(ibd));
+				tile.a(nbt);
 
-				chunk.a(new BlockPosition(x + offsetX, y, z + offsetZ), tile);
+				target.world.setTileEntity(dst, tile);
 				updatePackets.add(tile.getUpdatePacket());
 			}
 		}
