@@ -180,6 +180,7 @@ public class VirtualConnection {
 		}
 
 		connections.remove(player);
+		environment.getConnections().remove(this);
 		this.injected = false;
 	}
 
