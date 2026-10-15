@@ -1,5 +1,9 @@
 package net.dashmc.plots.config;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Objects;
@@ -28,6 +32,7 @@ public class PlotConfig extends OkaeriConfig {
 			"the virtualized region. When checking if the player is inside",
 			"of this region, we use a 1-block buffer."
 	})
+	@NotRequired
 	CuboidRegion antiCheatDisabledRegion;
 
 	public CuboidRegion getDefaultedACRegion() {
@@ -67,6 +72,9 @@ public class PlotConfig extends OkaeriConfig {
 
 	public void validate() {
 		for (Field field : getClass().getDeclaredFields()) {
+			if (field.isAnnotationPresent(NotRequired.class))
+				continue;
+
 			try {
 				Object value = field.get(this);
 				Objects.requireNonNull(value, "Field " + field.getName() + " is null in "
@@ -75,6 +83,14 @@ public class PlotConfig extends OkaeriConfig {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	/**
+	 * Fields with this annotation may be left out of the config
+	 */
+	@Retention(RetentionPolicy.RUNTIME)
+	@Target(ElementType.FIELD)
+	private @interface NotRequired {
 	}
 
 }
