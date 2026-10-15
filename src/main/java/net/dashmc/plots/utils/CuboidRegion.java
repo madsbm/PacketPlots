@@ -58,9 +58,10 @@ public class CuboidRegion {
 
 		ChunkCoordIntPair[] chunks = new ChunkCoordIntPair[totalChunks];
 
-		for (int x = minX >> 4, i = 0; x <= maxX >> 4; x++) {
-			for (int z = minZ >> 4; z <= maxZ >> 4; z++, i++) {
-				chunks[i] = new ChunkCoordIntPair(x, z);
+		int i = 0;
+		for (int x = minX >> 4; x <= maxX >> 4; x++) {
+			for (int z = minZ >> 4; z <= maxZ >> 4; z++) {
+				chunks[i++] = new ChunkCoordIntPair(x, z);
 			}
 		}
 
