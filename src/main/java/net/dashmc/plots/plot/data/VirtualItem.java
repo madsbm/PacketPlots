@@ -115,7 +115,7 @@ public abstract class VirtualItem<T extends Item> {
 						itemStack.count = newCount;
 					}
 
-					if (!(newBlockData instanceof BlockContainer)) {
+					if (!(newBlockData.getBlock() instanceof BlockContainer)) {
 						VirtualBlock.onPlace(env, placedAt, newBlockData);
 					}
 
