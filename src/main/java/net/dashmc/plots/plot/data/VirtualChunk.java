@@ -62,13 +62,12 @@ public class VirtualChunk implements IDataHolder {
 		this.chunk = world.chunkProviderServer.getChunkAt(coordPair.x, coordPair.z);
 
 		this.sectionMask = environment.getRegion().getSectionMask();
-		int i = 0;
-		for (ChunkSection section : chunk.getSections()) {
-			if (section != null && (sectionMask & 1 << i) != 0) {
-				sections[i] = new Section(section);
-			}
+		ChunkSection[] real = chunk.getSections();
+		for (byte i = 0; i < 16; i++) {
+			if ((sectionMask & 1 << i) == 0)
+				continue;
 
-			i++;
+			sections[i] = real[i] != null ? new Section(real[i]) : new Section(i);
 		}
 
 		Debug.log("vChunk sections: " + Arrays.toString(chunk.getSections()));
@@ -123,8 +122,8 @@ public class VirtualChunk implements IDataHolder {
 			if (chunkSection == null)
 				chunkSection = new ChunkSection(yPos, !world.worldProvider.o());
 			section = new Section(chunkSection);
-			sectionMask |= 1 << yPos;
 			sections[yPos] = section;
+			sectionMask |= 1 << yPos;
 		}
 		section.setBlock(relX, (byte) (pos.getY() & 15), relZ, blockData);
 
@@ -327,6 +326,10 @@ public class VirtualChunk implements IDataHolder {
 			}
 		}
 
+		public Section(byte chunkY) {
+			this.chunkY = chunkY;
+		}
+
 		public Section(DataInputStream stream, byte chunkY) throws IOException {
 			this.chunkY = chunkY;
 			deserialize(stream);
@@ -341,8 +344,8 @@ public class VirtualChunk implements IDataHolder {
 			this.nonEmptyBlockCount = stream.readChar();
 			CuboidRegion region = getEnvironment().getRegion();
 
-			ChunkSection section = getChunk().getSections()[chunkY];
-			this.blockIds = section.getIdArray().clone();
+			ChunkSection real = getChunk().getSections()[chunkY];
+			this.blockIds = real != null ? real.getIdArray().clone() : new char[4096];
 
 			region.forEachInside(this, (x, y, z) -> {
 				try {
