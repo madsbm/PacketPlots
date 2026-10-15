@@ -172,6 +172,8 @@ public class VirtualConnection {
 	}
 
 	public void close() {
+		setInsideACRegion(false);
+
 		Channel channel = player.playerConnection.networkManager.channel;
 		if (channel.pipeline().get(NETTY_PIPELINE_NAME) != null) {
 			channel.pipeline().remove(NETTY_PIPELINE_NAME);
