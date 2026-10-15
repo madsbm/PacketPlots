@@ -4,7 +4,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -16,6 +15,7 @@ import lombok.Getter;
 import net.dashmc.plots.data.IDataHolder;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.utils.CuboidRegion;
+import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.dashmc.plots.utils.helpers.NBTHelper;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.Block;
@@ -32,18 +32,13 @@ import net.minecraft.server.v1_8_R3.IContainer;
 import net.minecraft.server.v1_8_R3.NBTReadLimiter;
 import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import net.minecraft.server.v1_8_R3.Packet;
-import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk;
 import net.minecraft.server.v1_8_R3.TileEntity;
 import net.minecraft.server.v1_8_R3.World;
 import net.minecraft.server.v1_8_R3.WorldServer;
 import net.minecraft.server.v1_8_R3.Chunk.EnumTileEntityState;
 
 public class VirtualChunk implements IDataHolder {
-	private static Field xCoordField;
-	private static Field zCoordField;
-	private static Field chunkMapField;
-
-	private static Field nonEmptyBlockCountField;
+	private static FieldAccess<Integer> nonEmptyBlockCountField;
 
 	private @Getter ChunkCoordIntPair coordPair;
 
@@ -315,7 +310,7 @@ public class VirtualChunk implements IDataHolder {
 			try {
 				chunkY = (byte) (section.getYPosition() >> 4);
 				blockIds = section.getIdArray().clone();
-				nonEmptyBlockCount = (char) nonEmptyBlockCountField.getInt(section);
+				nonEmptyBlockCount = (char) nonEmptyBlockCountField.get(section).intValue();
 			} catch (IllegalArgumentException | IllegalAccessException e) {
 				e.printStackTrace();
 			}
@@ -401,16 +396,7 @@ public class VirtualChunk implements IDataHolder {
 
 	static {
 		try {
-			nonEmptyBlockCountField = ChunkSection.class.getDeclaredField("nonEmptyBlockCount");
-			nonEmptyBlockCountField.setAccessible(true);
-
-			xCoordField = PacketPlayOutMapChunk.class.getDeclaredField("a");
-			xCoordField.setAccessible(true);
-			zCoordField = PacketPlayOutMapChunk.class.getDeclaredField("b");
-			zCoordField.setAccessible(true);
-			chunkMapField = PacketPlayOutMapChunk.class.getDeclaredField("c");
-			chunkMapField.setAccessible(true);
-
+			nonEmptyBlockCountField = new FieldAccess<>(ChunkSection.class, "nonEmptyBlockCount", int.class);
 		} catch (NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}

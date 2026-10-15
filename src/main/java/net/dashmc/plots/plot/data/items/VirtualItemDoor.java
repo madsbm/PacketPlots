@@ -1,10 +1,9 @@
 package net.dashmc.plots.plot.data.items;
 
-import java.lang.reflect.Field;
-
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.plot.data.VirtualItem;
+import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockDoor;
@@ -16,7 +15,7 @@ import net.minecraft.server.v1_8_R3.ItemDoor;
 import net.minecraft.server.v1_8_R3.ItemStack;
 
 public class VirtualItemDoor extends VirtualItem<ItemDoor> {
-	private static Field blockField;
+	private static FieldAccess<Block> blockField;
 
 	@Override
 	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
@@ -86,8 +85,7 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 
 	static {
 		try {
-			blockField = ItemDoor.class.getDeclaredField("a");
-			blockField.setAccessible(true);
+			blockField = new FieldAccess<>(ItemDoor.class, "a", Block.class);
 		} catch (NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}

@@ -1,6 +1,5 @@
 package net.dashmc.plots.packets.interceptors;
 
-import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.LinkedList;
 
@@ -11,6 +10,7 @@ import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.plot.data.VirtualChunk;
+import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
@@ -19,9 +19,9 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunkBulk;
 // https://minecraft.wiki/w/Protocol?oldid=2772100#Map_Chunk_Bulk
 public class MapChunkBulkPacketInterceptor extends PacketInterceptor<PacketPlayOutMapChunkBulk> {
 	protected static final HashSet<Integer> coordPairs = new HashSet<>();
-	private static Field xCoordField;
-	private static Field zCoordField;
-	private static Field chunkMapField;
+	private static FieldAccess<int[]> xCoordField;
+	private static FieldAccess<int[]> zCoordField;
+	private static FieldAccess<ChunkMap[]> chunkMapField;
 
 	@Override
 	public boolean intercept(PacketPlayOutMapChunkBulk packet, VirtualConnection conn) {
@@ -81,12 +81,9 @@ public class MapChunkBulkPacketInterceptor extends PacketInterceptor<PacketPlayO
 		}
 
 		try {
-			xCoordField = PacketPlayOutMapChunkBulk.class.getDeclaredField("a");
-			xCoordField.setAccessible(true);
-			zCoordField = PacketPlayOutMapChunkBulk.class.getDeclaredField("b");
-			zCoordField.setAccessible(true);
-			chunkMapField = PacketPlayOutMapChunkBulk.class.getDeclaredField("c");
-			chunkMapField.setAccessible(true);
+			xCoordField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "a", int[].class);
+			zCoordField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "b", int[].class);
+			chunkMapField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "c", ChunkMap[].class);
 		} catch (NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}

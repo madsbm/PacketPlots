@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 
 import net.dashmc.plots.plot.Environment;
 import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
@@ -17,7 +18,7 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutBlockBreakAnimation;
 import net.minecraft.server.v1_8_R3.PlayerInteractManager;
 
 public class VirtualPlayerInteractManager extends PlayerInteractManager {
-	private static Field playerInteractManagerField;
+	private static FieldAccess<PlayerInteractManager> playerInteractManagerField;
 	private EntityPlayer player;
 
 	public static VirtualPlayerInteractManager inject(Player player)
@@ -89,24 +90,26 @@ public class VirtualPlayerInteractManager extends PlayerInteractManager {
 
 	static {
 		try {
-			playerInteractManagerField = EntityPlayer.class.getDeclaredField("playerInteractManager");
-			playerInteractManagerField.setAccessible(true);
+			playerInteractManagerField = new FieldAccess<>(
+					EntityPlayer.class,
+					"playerInteractManager",
+					PlayerInteractManager.class);
 
 			// as the field is declared as final, we need to remove the final modifier
-			Field modifiers = Field.class.getDeclaredField("modifiers");
-			modifiers.setAccessible(true);
-			modifiers.setInt(playerInteractManagerField, playerInteractManagerField.getModifiers() & ~Modifier.FINAL);
+			int modifiers = playerInteractManagerField.getField().getModifiers() & ~Modifier.FINAL;
+			FieldAccess<Integer> modifierField = new FieldAccess<>(Field.class, "modifiers", int.class);
+			modifierField.set(playerInteractManagerField.getField(), modifiers);
 		} catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
 			e.printStackTrace();
 		}
 	}
 
 	// player interact manager utils
-	private static Field lastDigTick;
-	private static Field currentTick;
-	private static Field isDestroying;
-	private static Field destroyPosition;
-	private static Field force;
+	private static FieldAccess<Integer> lastDigTick;
+	private static FieldAccess<Integer> currentTick;
+	private static FieldAccess<Boolean> isDestroying;
+	private static FieldAccess<BlockPosition> destroyPosition;
+	private static FieldAccess<Integer> force;
 
 	public int getLastDigTick() {
 		try {
@@ -195,20 +198,11 @@ public class VirtualPlayerInteractManager extends PlayerInteractManager {
 
 	static {
 		try {
-			lastDigTick = PlayerInteractManager.class.getDeclaredField("lastDigTick");
-			lastDigTick.setAccessible(true);
-
-			currentTick = PlayerInteractManager.class.getDeclaredField("currentTick");
-			currentTick.setAccessible(true);
-
-			isDestroying = PlayerInteractManager.class.getDeclaredField("d");
-			isDestroying.setAccessible(true);
-
-			destroyPosition = PlayerInteractManager.class.getDeclaredField("f");
-			destroyPosition.setAccessible(true);
-
-			force = PlayerInteractManager.class.getDeclaredField("k");
-			force.setAccessible(true);
+			lastDigTick = new FieldAccess<>(PlayerInteractManager.class, "lastDigTick", int.class);
+			currentTick = new FieldAccess<>(PlayerInteractManager.class, "currentTick", int.class);
+			isDestroying = new FieldAccess<>(PlayerInteractManager.class, "d", boolean.class);
+			destroyPosition = new FieldAccess<>(PlayerInteractManager.class, "f", BlockPosition.class);
+			force = new FieldAccess<>(PlayerInteractManager.class, "k", int.class);
 		} catch (NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}

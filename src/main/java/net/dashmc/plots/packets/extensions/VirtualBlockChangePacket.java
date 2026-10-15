@@ -1,15 +1,14 @@
 package net.dashmc.plots.packets.extensions;
 
-import java.lang.reflect.Field;
-
 import lombok.Getter;
 import net.dashmc.plots.packets.IPacketExtension;
 import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.PacketPlayOutBlockChange;
 
 public class VirtualBlockChangePacket implements IPacketExtension<PacketPlayOutBlockChange> {
-	private static Field posField;
+	private static FieldAccess<BlockPosition> posField;
 
 	@Getter
 	private final PacketPlayOutBlockChange packet;
@@ -23,13 +22,11 @@ public class VirtualBlockChangePacket implements IPacketExtension<PacketPlayOutB
 		} catch (IllegalArgumentException | IllegalAccessException e) {
 			e.printStackTrace();
 		}
-
 	}
 
 	static {
 		try {
-			posField = PacketPlayOutBlockChange.class.getDeclaredField("a");
-			posField.setAccessible(true);
+			posField = new FieldAccess<>(PacketPlayOutBlockChange.class, "a", BlockPosition.class);
 		} catch (NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}

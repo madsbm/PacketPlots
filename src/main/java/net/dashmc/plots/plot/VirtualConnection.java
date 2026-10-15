@@ -1,6 +1,5 @@
 package net.dashmc.plots.plot;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.logging.Level;
 
@@ -23,6 +22,7 @@ import net.dashmc.plots.events.EnvironmentEnterExit;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.helpers.ChestHelper;
+import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.MinecraftServer;
@@ -34,9 +34,9 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 
 @Getter
 public class VirtualConnection {
-	private static Field xCoordField;
-	private static Field zCoordField;
-	private static Field chunkMapField;
+	private static FieldAccess<Integer> xCoordField;
+	private static FieldAccess<Integer> zCoordField;
+	private static FieldAccess<ChunkMap> chunkMapField;
 	private static final HashMap<Class<?>, PacketInterceptor<?>> packetModifiers = new HashMap<>();
 
 	private @Setter boolean moved = false;
@@ -196,14 +196,9 @@ public class VirtualConnection {
 
 	static {
 		try {
-			xCoordField = PacketPlayOutMapChunk.class.getDeclaredField("a");
-			xCoordField.setAccessible(true);
-
-			zCoordField = PacketPlayOutMapChunk.class.getDeclaredField("b");
-			zCoordField.setAccessible(true);
-
-			chunkMapField = PacketPlayOutMapChunk.class.getDeclaredField("c");
-			chunkMapField.setAccessible(true);
+			xCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "a", int.class);
+			zCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "b", int.class);
+			chunkMapField = new FieldAccess<>(PacketPlayOutMapChunk.class, "c", ChunkMap.class);
 		} catch (NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}

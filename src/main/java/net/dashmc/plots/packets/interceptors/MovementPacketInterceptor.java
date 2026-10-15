@@ -1,6 +1,5 @@
 package net.dashmc.plots.packets.interceptors;
 
-import java.lang.reflect.Field;
 import java.util.Collections;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -12,6 +11,7 @@ import net.dashmc.plots.events.VirtualPlayerMoveEvent;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.utils.CuboidRegion;
+import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.PacketPlayInFlying;
 import net.minecraft.server.v1_8_R3.PacketPlayOutPosition;
@@ -117,37 +117,21 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 		return true;
 	}
 
-	private static Field xCoord;
-	private static Field yCoord;
-	private static Field zCoord;
+	private static FieldAccess<Double> xCoord;
+	private static FieldAccess<Double> yCoord;
+	private static FieldAccess<Double> zCoord;
 
-	private static Field yaw;
-	private static Field pitch;
-
-	private static Field hasMoved;
-	private static Field h;
+	private static FieldAccess<Float> yaw;
+	private static FieldAccess<Float> pitch;
 
 	static {
 		try {
-			hasMoved = PlayerConnection.class.getDeclaredField("hasMoved");
-			hasMoved.setAccessible(true);
+			xCoord = new FieldAccess<>(PlayerConnection.class, "o", double.class);
+			yCoord = new FieldAccess<>(PlayerConnection.class, "p", double.class);
+			zCoord = new FieldAccess<>(PlayerConnection.class, "q", double.class);
 
-			h = PlayerConnection.class.getDeclaredField("h");
-			h.setAccessible(true);
-
-			xCoord = PlayerConnection.class.getDeclaredField("o");
-			yCoord = PlayerConnection.class.getDeclaredField("p");
-			zCoord = PlayerConnection.class.getDeclaredField("q");
-
-			xCoord.setAccessible(true);
-			yCoord.setAccessible(true);
-			zCoord.setAccessible(true);
-
-			yaw = PlayerConnection.class.getDeclaredField("lastYaw");
-			pitch = PlayerConnection.class.getDeclaredField("lastPitch");
-
-			yaw.setAccessible(true);
-			pitch.setAccessible(true);
+			yaw = new FieldAccess<>(PlayerConnection.class, "lastYaw", float.class);
+			pitch = new FieldAccess<>(PlayerConnection.class, "lastPitch", float.class);
 		} catch (NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}
@@ -161,12 +145,12 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 		double z = loc.getZ();
 
 		try {
-			xCoord.setDouble(conn, x);
-			yCoord.setDouble(conn, y);
-			zCoord.setDouble(conn, z);
+			xCoord.set(conn, x);
+			yCoord.set(conn, y);
+			zCoord.set(conn, z);
 
-			yaw.setFloat(conn, loc.getYaw());
-			pitch.setFloat(conn, loc.getPitch());
+			yaw.set(conn, loc.getYaw());
+			pitch.set(conn, loc.getPitch());
 		} catch (IllegalArgumentException | IllegalAccessException e) {
 			e.printStackTrace();
 		}

@@ -1,9 +1,8 @@
 package net.dashmc.plots.plot.data.items;
 
-import java.lang.reflect.Field;
-
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.VirtualItem;
+import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.BlockStepAbstract;
 import net.minecraft.server.v1_8_R3.EntityHuman;
@@ -16,8 +15,8 @@ import net.minecraft.server.v1_8_R3.ItemStep;
 import net.minecraft.server.v1_8_R3.BlockStepAbstract.EnumSlabHalf;
 
 public class VirtualItemStep extends VirtualItem<ItemStep> {
-	private static Field stepField;
-	private static Field doubleField;
+	private static FieldAccess<BlockStepAbstract> stepField;
+	private static FieldAccess<BlockStepAbstract> doubleField;
 
 	@Override
 	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
@@ -82,11 +81,8 @@ public class VirtualItemStep extends VirtualItem<ItemStep> {
 
 	static {
 		try {
-			stepField = ItemStep.class.getDeclaredField("b");
-			stepField.setAccessible(true);
-
-			doubleField = ItemStep.class.getDeclaredField("c");
-			doubleField.setAccessible(true);
+			stepField = new FieldAccess<>(ItemStep.class, "b", BlockStepAbstract.class);
+			doubleField = new FieldAccess<>(ItemStep.class, "c", BlockStepAbstract.class);
 		} catch (NoSuchFieldException | SecurityException e) {
 			e.printStackTrace();
 		}
