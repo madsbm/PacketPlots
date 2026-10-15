@@ -23,6 +23,11 @@ public class BackdropRemoverTransformer implements IRenderTransformer {
 			}
 
 			ChunkSection section = virtualChunk.getChunk().getSections()[i];
+			if (section == null) {
+				mapPointer += 4096 * 2;
+				continue;
+			}
+
 			char[] blockIds = section.getIdArray();
 			for (int sectionPointer = 0; sectionPointer < blockIds.length; sectionPointer++, mapPointer += 2) {
 				char blockId = (char) ((chunkMap.a[mapPointer] & 0xFF) | ((chunkMap.a[mapPointer + 1] & 0xFF) << 8));
