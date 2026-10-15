@@ -311,7 +311,9 @@ public class CuboidEnvironment extends Environment {
 	@Override
 	public void stopVirtualization(EntityPlayer player) {
 		VirtualConnection conn = VirtualConnection.get(player);
-		connections.remove(conn);
+		if (conn == null)
+			return;
+
 		conn.close();
 
 		getVirtualChunks().values().forEach((val) -> {
@@ -332,6 +334,9 @@ public class CuboidEnvironment extends Environment {
 
 	@Override
 	public void startVirtualization(EntityPlayer player) {
+		if (VirtualConnection.get(player) != null)
+			return;
+
 		VirtualConnection conn = VirtualConnection.establish(player, this);
 		connections.add(conn);
 
