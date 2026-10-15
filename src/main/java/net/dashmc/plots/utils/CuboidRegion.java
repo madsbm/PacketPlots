@@ -95,13 +95,13 @@ public class CuboidRegion {
 		int chunkMaxZ = chunkMinZ + 15;
 
 		int minX = Math.max(getMinX(), chunkMinX);
-		int maxX = Math.max(getMaxX(), chunkMaxX);
+		int maxX = Math.min(getMaxX(), chunkMaxX);
 
 		int minY = Math.max(getMinY(), sectionMinY);
-		int maxY = Math.max(getMaxY(), sectionMaxY);
+		int maxY = Math.min(getMaxY(), sectionMaxY);
 
 		int minZ = Math.max(getMinZ(), chunkMinZ);
-		int maxZ = Math.max(getMaxZ(), chunkMaxZ);
+		int maxZ = Math.min(getMaxZ(), chunkMaxZ);
 
 		forEach(minX, minY, minZ, maxX, maxY, maxZ, consumer);
 	}
