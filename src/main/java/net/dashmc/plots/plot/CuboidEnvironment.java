@@ -1,17 +1,22 @@
 package net.dashmc.plots.plot;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.World;
@@ -97,16 +102,17 @@ public class CuboidEnvironment extends Environment {
 		File dataFile = new File(DATA_DIRECTORY, player.getUniqueId() + ".dat");
 
 		if (dataFile.exists()) {
-			FileInputStream fileInputStream = new FileInputStream(dataFile);
-			DataInputStream dataInputStream = new DataInputStream(fileInputStream);
-			readVersionCode(dataInputStream);
+			try (DataInputStream dataInputStream = new DataInputStream(
+					new BufferedInputStream(new FileInputStream(dataFile)))) {
+				readVersionCode(dataInputStream);
 
-			UUID prevUuid = player.getUniqueId();
-			deserialize(dataInputStream);
+				UUID prevUuid = player.getUniqueId();
+				deserialize(dataInputStream);
 
-			if (!prevUuid.equals(ownerUuid))
-				throw new IOException(
-						"Mismatched UUIDs: (" + prevUuid + " => " + ownerUuid + "). File might be corrupt");
+				if (!prevUuid.equals(ownerUuid))
+					throw new IOException(
+							"Mismatched UUIDs: (" + prevUuid + " => " + ownerUuid + "). File might be corrupt");
+			}
 
 			createEnvironment(player);
 			startVirtualization(nmsOwner);
@@ -258,10 +264,12 @@ public class CuboidEnvironment extends Environment {
 
 	@Override
 	public void save() {
-		try {
-			File dataFile = new File(DATA_DIRECTORY, getOwnerUuid() + ".dat");
-			FileOutputStream fileOutputStream = new FileOutputStream(dataFile);
-			DataOutputStream dataOutputStream = new DataOutputStream(fileOutputStream);
+		File dataFile = new File(DATA_DIRECTORY, getOwnerUuid() + ".dat");
+		File tempFile = new File(DATA_DIRECTORY, getOwnerUuid() + ".dat.tmp");
+
+		// write to a temporary file first, so a failed save never replaces the previous one
+		try (DataOutputStream dataOutputStream = new DataOutputStream(
+				new BufferedOutputStream(new FileOutputStream(tempFile)))) {
 			String version = PacketPlots.getInstance().getDescription().getVersion();
 
 			dataOutputStream.writeInt(version.length());
@@ -269,11 +277,17 @@ public class CuboidEnvironment extends Environment {
 				dataOutputStream.writeChar(versionCodeChar);
 
 			serialize(dataOutputStream);
-
-			fileOutputStream.close();
-			dataOutputStream.close();
 		} catch (IOException e) {
-			e.printStackTrace();
+			Bukkit.getLogger().log(Level.SEVERE, "Failed to save the PacketPlot of " + getOwnerUuid(), e);
+			tempFile.delete();
+			return;
+		}
+
+		try {
+			Files.move(tempFile.toPath(), dataFile.toPath(), StandardCopyOption.REPLACE_EXISTING,
+					StandardCopyOption.ATOMIC_MOVE);
+		} catch (IOException e) {
+			Bukkit.getLogger().log(Level.SEVERE, "Failed to replace the save file of " + getOwnerUuid(), e);
 		}
 	}
 
