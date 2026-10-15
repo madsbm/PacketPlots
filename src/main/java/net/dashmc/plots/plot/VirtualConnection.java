@@ -233,7 +233,7 @@ public class VirtualConnection {
 		@SuppressWarnings("unchecked")
 		@Override
 		public void channelRead(ChannelHandlerContext chx, Object obj) throws Exception {
-			if (!(obj instanceof Packet) || packetModifiers.containsKey(obj.getClass())) {
+			if (!(obj instanceof Packet) || !packetModifiers.containsKey(obj.getClass())) {
 				super.channelRead(chx, obj);
 				return;
 			}
