@@ -85,7 +85,7 @@ public abstract class VirtualItem<T extends Item> {
 			int data = itemStack.getData();
 			int count = itemStack.count;
 			BlockPosition placedAt = clicked.shift(dir);
-			Location bukkitPlacedAt = Utils.convertPosToLoc(env.getWorld(), clicked);
+			Location bukkitPlacedAt = Utils.convertPosToLoc(env.getRealWorld(), clicked);
 
 			IBlockData prevBlockData = env.getType(placedAt);
 			boolean flag = virtualItem.interactWith(itemStack, entityhuman, env, clicked, dir, cX, cY, cZ,

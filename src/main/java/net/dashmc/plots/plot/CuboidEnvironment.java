@@ -220,29 +220,6 @@ public class CuboidEnvironment extends Environment {
 	}
 
 	@Override
-	public void sendTile(TileEntity tile, EntityPlayer to) {
-		Packet<?> packet = tile.getUpdatePacket();
-		if (packet == null)
-			return;
-
-		to.playerConnection.sendPacket(packet);
-	}
-
-	@Override
-	public void sendTiles(EntityPlayer to) {
-		Iterator<TileEntity> tileIterator = tileEntities.iterator();
-		while (tileIterator.hasNext()) {
-			TileEntity tile = tileIterator.next();
-			sendTile(tile, to);
-		}
-	}
-
-	@Override
-	public void sendTiles(Player to) {
-		sendTiles(((CraftPlayer) to).getHandle());
-	}
-
-	@Override
 	public void close() {
 		save();
 
@@ -267,7 +244,8 @@ public class CuboidEnvironment extends Environment {
 		File dataFile = new File(DATA_DIRECTORY, getOwnerUuid() + ".dat");
 		File tempFile = new File(DATA_DIRECTORY, getOwnerUuid() + ".dat.tmp");
 
-		// write to a temporary file first, so a failed save never replaces the previous one
+		// write to a temporary file first, so a failed save never replaces the previous
+		// one
 		try (DataOutputStream dataOutputStream = new DataOutputStream(
 				new BufferedOutputStream(new FileOutputStream(tempFile)))) {
 			String version = PacketPlots.getInstance().getDescription().getVersion();
@@ -429,16 +407,6 @@ public class CuboidEnvironment extends Environment {
 			return false;
 
 		return region.includes(x, y, z);
-	}
-
-	@Override
-	public Player getOwner() {
-		return Bukkit.getPlayer(ownerUuid);
-	}
-
-	@Override
-	public EntityPlayer getNMSOwner() {
-		return ((CraftPlayer) getOwner()).getHandle();
 	}
 
 	@Override
