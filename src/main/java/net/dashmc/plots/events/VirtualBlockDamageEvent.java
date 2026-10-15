@@ -20,7 +20,8 @@ public class VirtualBlockDamageEvent extends Event implements Cancellable {
 	private final Location location;
 	private final Player player;
 	private final ItemStack itemInHand;
-	private final boolean instaBreak;
+	@Setter
+	private boolean instaBreak;
 	private final IEnvironment environment;
 
 	private static final HandlerList handlers = new HandlerList();

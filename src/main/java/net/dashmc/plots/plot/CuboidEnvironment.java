@@ -638,10 +638,11 @@ public class CuboidEnvironment extends Environment {
 			}
 
 			VirtualBlockDamageEvent blockEvent = new VirtualBlockDamageEvent(Utils.convertPosToLoc(world, pos),
-					player.getBukkitEntity(), player.getBukkitEntity().getItemInHand(), f >= 1.0f,
-					CuboidEnvironment.this);
-			if (blockEvent.isCancelled()) {
+					player.getBukkitEntity(), player.getBukkitEntity().getItemInHand(), CuboidEnvironment.this);
+			blockEvent.setInstaBreak(f >= 1.0f);
+			Bukkit.getPluginManager().callEvent(blockEvent);
 
+			if (blockEvent.isCancelled()) {
 				player.playerConnection
 						.sendPacket(new VirtualBlockChangePacket(CuboidEnvironment.this, pos).getPacket());
 				return;
