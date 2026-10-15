@@ -36,11 +36,10 @@ public class VulcanCompatibility extends CompatibilityLoader {
 	private void updateVulcanConfig() {
 		Plugin vulcan = Bukkit.getPluginManager().getPlugin("Vulcan");
 
-		try {
+		File confFile = new File(vulcan.getDataFolder(), "config.yml");
+		try (InputStreamReader reader = new InputStreamReader(new FileInputStream(confFile), Charsets.UTF_8)) {
 			YamlConfiguration vulcanConfig = new YamlConfiguration();
-			File confFile = new File(vulcan.getDataFolder(), "config.yml");
-			FileInputStream stream = new FileInputStream(confFile);
-			vulcanConfig.load(new InputStreamReader(stream, Charsets.UTF_8));
+			vulcanConfig.load(reader);
 
 			Boolean isGhostBlocksEnabled = vulcanConfig.getBoolean("ghost-blocks-fix.enabled");
 			Boolean isAPIEnabled = vulcanConfig.getBoolean("settings.enable-api");
