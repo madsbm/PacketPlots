@@ -89,7 +89,7 @@ public class BlockBag implements IDataHolder {
 
 		for (ItemStack item : items) {
 			if (item == null)
-				return;
+				continue;
 
 			add(item, false, true);
 		}

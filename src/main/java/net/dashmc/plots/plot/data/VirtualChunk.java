@@ -124,6 +124,7 @@ public class VirtualChunk implements IDataHolder {
 				chunkSection = new ChunkSection(yPos, !world.worldProvider.o());
 			section = new Section(chunkSection);
 			sectionMask |= 1 << yPos;
+			sections[yPos] = section;
 		}
 		section.setBlock(relX, (byte) (pos.getY() & 15), relZ, blockData);
 
