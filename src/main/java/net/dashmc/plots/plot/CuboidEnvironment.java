@@ -611,19 +611,7 @@ public class CuboidEnvironment extends Environment {
 			float f = 1f;
 
 			if (event.getUseClickedBlock() == Event.Result.DENY) {
-
-				IBlockData data = getType(pos);
-				if (block == Blocks.WOODEN_DOOR) {
-					boolean bottom = data.get(BlockDoor.HALF) == BlockDoor.EnumDoorHalf.LOWER;
-					player.playerConnection
-							.sendPacket(new VirtualBlockChangePacket(CuboidEnvironment.this, pos).getPacket());
-					player.playerConnection.sendPacket(
-							new VirtualBlockChangePacket(CuboidEnvironment.this, bottom ? pos.up() : pos.down())
-									.getPacket());
-				} else if (block == Blocks.TRAPDOOR) {
-					player.playerConnection
-							.sendPacket(new VirtualBlockChangePacket(CuboidEnvironment.this, pos).getPacket());
-				}
+				handleGateMismatch(getType(pos), player, pos, CuboidEnvironment.this);
 			} else if (block.getMaterial() != Material.AIR) {
 				// block.attack(nmsWorld, pos, player);
 				f = block.getDamage(player, nmsWorld, pos);
