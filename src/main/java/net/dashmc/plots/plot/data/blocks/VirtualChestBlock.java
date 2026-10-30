@@ -3,7 +3,6 @@ package net.dashmc.plots.plot.data.blocks;
 import java.util.Iterator;
 
 import net.dashmc.plots.plot.IEnvironment;
-import net.dashmc.plots.plot.data.BlockBag;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockChest;
@@ -22,19 +21,6 @@ import net.minecraft.server.v1_8_R3.TileEntity;
 import net.minecraft.server.v1_8_R3.TileEntityChest;
 
 public class VirtualChestBlock extends VirtualBlock<BlockChest> {
-
-	@Override
-	public void onBlockHarvested(BlockChest block, IEnvironment environment, BlockPosition pos, IBlockData data,
-			BlockBag bag,
-			TileEntity tile) {
-		ITileInventory inventory = getInventory(environment, pos, block);
-		if (inventory == null)
-			return;
-
-		bag.addAll(inventory.getContents());
-
-		super.onBlockHarvested(block, environment, pos, data, bag, tile);
-	};
 
 	@Override
 	public boolean interact(BlockChest block, IEnvironment environment, BlockPosition blockposition,

@@ -29,6 +29,7 @@ import net.minecraft.server.v1_8_R3.ChunkSection;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.IBlockData;
 import net.minecraft.server.v1_8_R3.IContainer;
+import net.minecraft.server.v1_8_R3.IInventory;
 import net.minecraft.server.v1_8_R3.NBTReadLimiter;
 import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import net.minecraft.server.v1_8_R3.Packet;
@@ -121,11 +122,10 @@ public class VirtualChunk implements IDataHolder {
 		}
 		section.setBlock(relX, (byte) (pos.getY() & 15), relZ, blockData);
 
-		if (currBlock != newBlock) {
-			if (!this.world.isClientSide) {
-				// block1.remove(this.world, pos, currentBlock);
-			}
-		}
+		// in place of block1.remove(this.world, pos, currentBlock), which removes the
+		// tile entity of a replaced container
+		if (currBlock != newBlock && currBlock instanceof IContainer)
+			removeTileEntity(pos);
 
 		if (section.getBlock(relX, (byte) (pos.getY() & 15), relZ) != newBlock)
 			return false;
@@ -176,6 +176,20 @@ public class VirtualChunk implements IDataHolder {
 			entity.D();
 			this.tileEntities.put(pos, entity);
 		}
+	}
+
+	// like World#t (removeTileEntity), which BlockContainer#remove calls
+	private void removeTileEntity(BlockPosition pos) {
+		TileEntity tileEntity = tileEntities.remove(pos);
+		if (tileEntity == null)
+			return;
+
+		tileEntity.y();
+		environment.getTileEntities().remove(tileEntity);
+
+		// where vanilla drops the contents of a removed container, they go to the owner
+		if (tileEntity instanceof IInventory)
+			environment.getBlockBag().addAll(((IInventory) tileEntity).getContents());
 	}
 
 	@Override
