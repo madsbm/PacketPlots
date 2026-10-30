@@ -74,10 +74,6 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 		float deltaAngle = Math.abs(from.getYaw() - to.getYaw()) + Math.abs(from.getPitch() - to.getPitch());
 
 		if ((delta > 1f / 256 || deltaAngle > 10f) && !player.dead) {
-			// lastX = to.getX();
-			// lastY = to.getY();
-			// lastZ = to.getZ();
-
 			Location oldTo = to.clone();
 			VirtualPlayerMoveEvent event = new VirtualPlayerMoveEvent(bukkitPlayer, from, oldTo,
 					connection.getEnvironment());
@@ -118,61 +114,30 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 		return true;
 	}
 
-	private static FieldAccess<Double> xCoord;
-	private static FieldAccess<Double> yCoord;
-	private static FieldAccess<Double> zCoord;
+	private static final FieldAccess<Double> xCoord = new FieldAccess<>(PlayerConnection.class, "o", double.class);
+	private static final FieldAccess<Double> yCoord = new FieldAccess<>(PlayerConnection.class, "p", double.class);
+	private static final FieldAccess<Double> zCoord = new FieldAccess<>(PlayerConnection.class, "q", double.class);
 
-	private static FieldAccess<Float> yaw;
-	private static FieldAccess<Float> pitch;
-
-	static {
-		try {
-			xCoord = new FieldAccess<>(PlayerConnection.class, "o", double.class);
-			yCoord = new FieldAccess<>(PlayerConnection.class, "p", double.class);
-			zCoord = new FieldAccess<>(PlayerConnection.class, "q", double.class);
-
-			yaw = new FieldAccess<>(PlayerConnection.class, "lastYaw", float.class);
-			pitch = new FieldAccess<>(PlayerConnection.class, "lastPitch", float.class);
-		} catch (NoSuchFieldException | SecurityException e) {
-			e.printStackTrace();
-		}
-	}
+	private static final FieldAccess<Float> yaw = new FieldAccess<>(PlayerConnection.class, "lastYaw", float.class);
+	private static final FieldAccess<Float> pitch = new FieldAccess<>(PlayerConnection.class, "lastPitch",
+			float.class);
 
 	private static void setLocation(Location loc, VirtualConnection vConn) {
 		PlayerConnection conn = vConn.getPlayer().playerConnection;
 
-		double x = loc.getX();
-		double y = loc.getY();
-		double z = loc.getZ();
+		xCoord.set(conn, loc.getX());
+		yCoord.set(conn, loc.getY());
+		zCoord.set(conn, loc.getZ());
 
-		try {
-			xCoord.set(conn, x);
-			yCoord.set(conn, y);
-			zCoord.set(conn, z);
-
-			yaw.set(conn, loc.getYaw());
-			pitch.set(conn, loc.getPitch());
-		} catch (IllegalArgumentException | IllegalAccessException e) {
-			e.printStackTrace();
-		}
+		yaw.set(conn, loc.getYaw());
+		pitch.set(conn, loc.getPitch());
 	}
 
 	private static Location getLocation(VirtualConnection vConn) {
 		PlayerConnection conn = vConn.getPlayer().playerConnection;
 
-		try {
-			double y = (double) yCoord.get(conn);
-			double z = (double) zCoord.get(conn);
-			double x = (double) xCoord.get(conn);
-
-			float cYaw = (float) yaw.get(conn);
-			float cPitch = (float) pitch.get(conn);
-
-			return new Location(vConn.getEnvironment().getRealWorld().getWorld(), x, y, z, cYaw, cPitch);
-		} catch (IllegalArgumentException | IllegalAccessException e) {
-			e.printStackTrace();
-			return null;
-		}
+		return new Location(vConn.getEnvironment().getRealWorld().getWorld(), xCoord.get(conn), yCoord.get(conn),
+				zCoord.get(conn), yaw.get(conn), pitch.get(conn));
 	}
 
 	@Override

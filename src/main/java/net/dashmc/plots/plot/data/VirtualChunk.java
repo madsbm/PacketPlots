@@ -39,7 +39,8 @@ import net.minecraft.server.v1_8_R3.WorldServer;
 import net.minecraft.server.v1_8_R3.Chunk.EnumTileEntityState;
 
 public class VirtualChunk implements IDataHolder {
-	private static FieldAccess<Integer> nonEmptyBlockCountField;
+	private static final FieldAccess<Integer> nonEmptyBlockCountField = new FieldAccess<>(ChunkSection.class,
+			"nonEmptyBlockCount", int.class);
 
 	private @Getter ChunkCoordIntPair coordPair;
 
@@ -67,8 +68,8 @@ public class VirtualChunk implements IDataHolder {
 			sections[i] = real[i] != null ? new Section(real[i]) : new Section(i);
 		}
 
-		Debug.log("vChunk sections: " + Arrays.toString(chunk.getSections()));
-		Debug.log("tiles: " + chunk.getTileEntities());
+		Debug.log(() -> "vChunk sections: " + Arrays.toString(chunk.getSections()));
+		Debug.log(() -> "tiles: " + chunk.getTileEntities());
 
 		for (Map.Entry<BlockPosition, TileEntity> entry : chunk.getTileEntities().entrySet()) {
 			setBlock(entry.getKey(), Blocks.AIR.getBlockData());
@@ -122,10 +123,14 @@ public class VirtualChunk implements IDataHolder {
 		}
 		section.setBlock(relX, (byte) (pos.getY() & 15), relZ, blockData);
 
-		// in place of block1.remove(this.world, pos, currentBlock), which removes the
-		// tile entity of a replaced container
-		if (currBlock != newBlock && currBlock instanceof IContainer)
-			removeTileEntity(pos);
+		// like block1.remove(this.world, pos, currentBlock), which for a container
+		// also removes its tile entity
+		if (currBlock != newBlock) {
+			VirtualBlock.remove(environment, pos, currentBlock);
+
+			if (currBlock instanceof IContainer)
+				removeTileEntity(pos);
+		}
 
 		if (section.getBlock(relX, (byte) (pos.getY() & 15), relZ) != newBlock)
 			return false;
@@ -155,7 +160,7 @@ public class VirtualChunk implements IDataHolder {
 	}
 
 	public void sendTiles(EntityPlayer to) {
-		Debug.log("sending tiles in chunk to player: " + tileEntities.size());
+		Debug.log(() -> "sending tiles in chunk to player: " + tileEntities.size());
 		Iterator<TileEntity> tiles = tileEntities.values().iterator();
 		while (tiles.hasNext()) {
 			Packet<?> updatePacket = tiles.next().getUpdatePacket();
@@ -199,7 +204,7 @@ public class VirtualChunk implements IDataHolder {
 
 		this.coordPair = new ChunkCoordIntPair(stream.readInt(), stream.readInt());
 
-		Debug.log("Deserializing chunk @ " + coordPair.x + " , " + coordPair.z);
+		Debug.log(() -> "Deserializing chunk @ " + coordPair.x + " , " + coordPair.z);
 
 		ChunkProviderServer cps = (ChunkProviderServer) world.N();
 		if (cps.isChunkLoaded(coordPair.x, coordPair.z)) {
@@ -210,8 +215,8 @@ public class VirtualChunk implements IDataHolder {
 		}
 
 		this.sectionMask = environment.getRegion().getSectionMask();
-		Debug.log("Section mask for the chunk: " + Integer.toBinaryString(sectionMask));
-		Debug.log("Sections for chunk: " + Arrays.toString(chunk.getSections()));
+		Debug.log(() -> "Section mask for the chunk: " + Integer.toBinaryString(sectionMask));
+		Debug.log(() -> "Sections for chunk: " + Arrays.toString(chunk.getSections()));
 		for (byte i = 0; i < 16; i++) {
 			if ((sectionMask & (1 << i)) == 0)
 				continue;
@@ -224,7 +229,7 @@ public class VirtualChunk implements IDataHolder {
 			NBTTagCompound compound = NBTHelper.loadPayload(stream, new NBTReadLimiter(2097152L));
 			TileEntity tile = TileEntity.c(compound);
 
-			Debug.log("Loading tile with NBT " + compound.toString());
+			Debug.log(() -> "Loading tile with NBT " + compound.toString());
 
 			environment.getTileEntities().add(tile);
 			setTileEntity(tile.getPosition(), tile);
@@ -235,7 +240,7 @@ public class VirtualChunk implements IDataHolder {
 	public void serialize(DataOutputStream stream) throws IOException {
 		stream.writeInt(coordPair.x);
 		stream.writeInt(coordPair.z);
-		Debug.log("Serializing chunk @ " + coordPair.x + " , " + coordPair.z);
+		Debug.log(() -> "Serializing chunk @ " + coordPair.x + " , " + coordPair.z);
 
 		for (Section virtualChunkSection : sections) {
 			if (virtualChunkSection == null)
@@ -249,7 +254,7 @@ public class VirtualChunk implements IDataHolder {
 			NBTTagCompound compound = new NBTTagCompound();
 			tile.b(compound);
 
-			Debug.log("Saved tile with NBT " + compound.toString());
+			Debug.log(() -> "Saved tile with NBT " + compound.toString());
 
 			NBTHelper.writePayload(stream, compound);
 		}
@@ -321,13 +326,9 @@ public class VirtualChunk implements IDataHolder {
 		private @Getter char[] blockIds = new char[4096];
 
 		public Section(ChunkSection section) {
-			try {
-				chunkY = (byte) (section.getYPosition() >> 4);
-				blockIds = section.getIdArray().clone();
-				nonEmptyBlockCount = (char) nonEmptyBlockCountField.get(section).intValue();
-			} catch (IllegalArgumentException | IllegalAccessException e) {
-				e.printStackTrace();
-			}
+			chunkY = (byte) (section.getYPosition() >> 4);
+			blockIds = section.getIdArray().clone();
+			nonEmptyBlockCount = (char) nonEmptyBlockCountField.get(section).intValue();
 		}
 
 		public Section(byte chunkY) {
@@ -405,14 +406,6 @@ public class VirtualChunk implements IDataHolder {
 				++this.nonEmptyBlockCount;
 
 			blockIds[y << 8 | z << 4 | x] = (char) Block.d.b(blockData);
-		}
-	}
-
-	static {
-		try {
-			nonEmptyBlockCountField = new FieldAccess<>(ChunkSection.class, "nonEmptyBlockCount", int.class);
-		} catch (NoSuchFieldException | SecurityException e) {
-			e.printStackTrace();
 		}
 	}
 }

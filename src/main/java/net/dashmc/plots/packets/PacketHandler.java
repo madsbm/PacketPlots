@@ -21,6 +21,11 @@ import net.minecraft.server.v1_8_R3.PacketListenerPlayOut;
  * PacketHandler for a virtual connection. Sorts through the packets and
  * passes the important ones to the InterceptorRegistry.
  *
+ * Threading: outgoing packets are intercepted on the Netty thread, as they're
+ * written, so outgoing interceptors may only read from the environment.
+ * Incoming packets are intercepted on the main thread, like vanilla handles
+ * them.
+ *
  * https://minecraft.wiki/w/Protocol?oldid=2772100
  */
 @RequiredArgsConstructor
@@ -31,8 +36,14 @@ public class PacketHandler extends ChannelDuplexHandler {
 
 	public static void inject(VirtualConnection connection) {
 		Channel channel = connection.getPlayer().playerConnection.networkManager.channel;
-		if (channel.pipeline().get(NETTY_PIPELINE_NAME) == null) {
-			channel.pipeline().addBefore("packet_handler", NETTY_PIPELINE_NAME, new PacketHandler(connection));
+		PacketHandler handler = new PacketHandler(connection);
+
+		// a handler left behind, e.g. by a reload, is replaced rather than kept, as it
+		// belongs to a connection that's no longer open
+		if (channel.pipeline().get(NETTY_PIPELINE_NAME) != null) {
+			channel.pipeline().replace(NETTY_PIPELINE_NAME, NETTY_PIPELINE_NAME, handler);
+		} else {
+			channel.pipeline().addBefore("packet_handler", NETTY_PIPELINE_NAME, handler);
 		}
 	}
 
@@ -43,7 +54,7 @@ public class PacketHandler extends ChannelDuplexHandler {
 		}
 	}
 
-	// Outgoing
+	// Outgoing, on the Netty thread
 	@SuppressWarnings("unchecked")
 	@Override
 	public void write(ChannelHandlerContext chx, Object obj, ChannelPromise promise) throws Exception {
@@ -59,7 +70,7 @@ public class PacketHandler extends ChannelDuplexHandler {
 		super.write(chx, packet, promise);
 	}
 
-	// Incomming
+	// Incomming, handed over to the main thread
 	@SuppressWarnings("unchecked")
 	@Override
 	public void channelRead(ChannelHandlerContext chx, Object obj) throws Exception {
@@ -83,12 +94,12 @@ public class PacketHandler extends ChannelDuplexHandler {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-		System.err.println("Netty pipeline exception: " + cause + " (environment owneruuid: "
-				+ connection.getEnvironment().getOwnerUuid() + ")");
-		cause.printStackTrace();
+		Bukkit.getLogger().log(Level.SEVERE, "Netty pipeline exception for " + connection.getPlayer().getName()
+				+ " (environment owner uuid: " + connection.getEnvironment().getOwnerUuid()
+				+ "). Attempting to shut down player gracefully!", cause);
 
-		System.err.println("Attempting to shut down player gracefully!");
-		shutdownGracefully();
+		// the chest is closed on the main thread, as it changes the player's inventory
+		MinecraftServer.getServer().postToMainThread(this::shutdownGracefully);
 
 		super.exceptionCaught(ctx, cause);
 	}

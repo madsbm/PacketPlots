@@ -3,15 +3,11 @@ package net.dashmc.plots.plot.data;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 
 import org.bukkit.Bukkit;
-import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
-import org.bukkit.entity.Player;
 
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.data.IDataHolder;
@@ -25,33 +21,13 @@ import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.NBTReadLimiter;
 import net.minecraft.server.v1_8_R3.NBTTagCompound;
 
+/**
+ * Items an environment's owner has gotten from it, such as broken blocks. Part
+ * of the environment, and saved with it.
+ */
 @Getter
-@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@RequiredArgsConstructor
 public class BlockBag implements IDataHolder {
-	private static final HashMap<EntityPlayer, BlockBag> blockBags = new HashMap<>();
-
-	public static BlockBag getBlockBag(EntityPlayer player) {
-		return blockBags.computeIfAbsent(player, uuid -> new BlockBag(player));
-	}
-
-	public static BlockBag getBlockBag(Player player) {
-		return getBlockBag(((CraftPlayer) player).getHandle());
-	}
-
-	public static void removeBlockBag(Player player) {
-		blockBags.remove(((CraftPlayer) player).getHandle());
-	}
-
-	public static void removeBlockBag(EntityPlayer player) {
-		blockBags.remove(player);
-	}
-
-	public static BlockBag deserialize(DataInputStream inputStream, EntityPlayer player) throws IOException {
-		BlockBag bag = new BlockBag(player);
-		bag.deserialize(inputStream);
-		return bag;
-	}
-
 	private final EntityPlayer player;
 	private LinkedList<ItemStack> bag = new LinkedList<>();
 
@@ -60,7 +36,7 @@ public class BlockBag implements IDataHolder {
 	}
 
 	public void emptyIfPossible() {
-		Debug.log("size of bag: " + bag.size());
+		Debug.log(() -> "size of bag: " + bag.size());
 
 		while (bag.size() > 0) {
 			ItemStack item = bag.peekFirst();

@@ -34,9 +34,10 @@ public class VirtualConnection {
 		open();
 	}
 
-	private boolean injected;
+	private volatile boolean injected;
 	private final EntityPlayer player;
-	private IEnvironment environment;
+	// read by outgoing interceptors on the Netty thread, changed on the main thread
+	private volatile IEnvironment environment;
 	private final IEnvironment original;
 	private boolean insideEnvironment;
 	private boolean insideACRegion;
@@ -73,7 +74,7 @@ public class VirtualConnection {
 
 		setVisiting(!other.equals(original));
 		Location safeLocation = PacketPlots.getPlotConfig().getSafeLocation();
-		Debug.log("teleporting player to " + safeLocation);
+		Debug.log(() -> "teleporting player to " + safeLocation);
 		player.getBukkitEntity().teleport(safeLocation);
 
 		this.environment = other;

@@ -84,13 +84,6 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 				break;
 		}
 
-		// if (player. == GameMode.CREATIVE
-		// && packet.c() == EnumPlayerDigType.START_DESTROY_BLOCK) {
-		// virtualChunk.setBlock(pos, Blocks.AIR.getBlockData());
-		// } else if (packet.c() == EnumPlayerDigType.STOP_DESTROY_BLOCK) {
-		// virtualChunk.setBlock(pos, Blocks.AIR.getBlockData());
-		// }
-
 		return true;
 	}
 

@@ -59,12 +59,12 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 					+ NumberConversions.square(eyeLoc.getY() - pos.getY())
 					+ NumberConversions.square(eyeLoc.getZ() - pos.getZ());
 
-			Debug.log("Reach dist: " + reachDist);
+			Debug.log(() -> "Reach dist: " + reachDist);
 
 			if (reachDist > (player.getBukkitEntity().getGameMode() == GameMode.CREATIVE ? 7 * 7 : 6 * 6))
 				return true;
 
-			Debug.log("Distance from block: "
+			Debug.log(() -> "Distance from block: "
 					+ player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D));
 
 			if (player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D) < 64D) {

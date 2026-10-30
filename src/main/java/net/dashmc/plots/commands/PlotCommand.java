@@ -14,7 +14,6 @@ import eu.okaeri.commands.service.CommandService;
 import net.dashmc.plots.PacketPlots;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
-import net.dashmc.plots.plot.data.BlockBag;
 
 @eu.okaeri.commands.annotation.Command(label = "plot", description = "Plot command")
 public class PlotCommand implements CommandService {
@@ -37,7 +36,11 @@ public class PlotCommand implements CommandService {
 	@Executor(pattern = "blockbag *")
 	public BukkitResponse blockBag(@Context Player sender, @Arg String action) {
 		if (action.equals("empty")) {
-			BlockBag.getBlockBag(sender).emptyIfPossible();
+			IEnvironment environment = PacketPlots.getEnvironmentManager().get(sender);
+			if (environment == null)
+				return RawResponse.of("Dit plot er ikke indlæst, så din block bag kan ikke tømmes.");
+
+			environment.getBlockBag().emptyIfPossible();
 			return RawResponse.of("Du tømte din block bag!");
 		}
 

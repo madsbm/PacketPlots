@@ -15,31 +15,35 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 
 // https://minecraft.wiki/w/Protocol?oldid=2772100#Chunk_Data
 public class MapChunkPacketInterceptor extends PacketInterceptor<PacketPlayOutMapChunk> {
-	private static FieldAccess<Integer> xCoordField;
-	private static FieldAccess<Integer> zCoordField;
-	private static FieldAccess<ChunkMap> chunkMapField;
+	private static final FieldAccess<Integer> xCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "a",
+			int.class);
+	private static final FieldAccess<Integer> zCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "b",
+			int.class);
+	private static final FieldAccess<ChunkMap> chunkMapField = new FieldAccess<>(PacketPlayOutMapChunk.class, "c",
+			ChunkMap.class);
 
 	@Override
 	public boolean intercept(PacketPlayOutMapChunk packet, VirtualConnection conn) {
 		IEnvironment environment = conn.getEnvironment();
 
-		try {
-			int xCoord = xCoordField.get(packet);
-			int zCoord = zCoordField.get(packet);
+		int xCoord = xCoordField.get(packet);
+		int zCoord = zCoordField.get(packet);
 
-			int hash = Utils.getChunkCoordHash(xCoord, zCoord);
-			if (MapChunkBulkPacketInterceptor.coordPairs.contains(hash)) {
-				VirtualChunk chunk = environment.getChunk(xCoord, zCoord);
-				chunkMapField.set(packet, environment.getRenderPipeline().render(chunk));
+		int hash = Utils.getChunkCoordHash(xCoord, zCoord);
+		if (!MapChunkBulkPacketInterceptor.coordPairs.contains(hash))
+			return false;
 
-				Bukkit.getScheduler().runTask(PacketPlots.getInstance(), () -> {
-					chunk.sendTiles(conn.getPlayer());
-				});
-			}
+		// null if the environment closed or changed while the packet was on its way
+		VirtualChunk chunk = environment.getChunk(xCoord, zCoord);
+		if (chunk == null)
+			return false;
 
-		} catch (IllegalArgumentException | IllegalAccessException e) {
-			e.printStackTrace();
-		}
+		chunkMapField.set(packet, environment.getRenderPipeline().render(chunk));
+
+		Bukkit.getScheduler().runTask(PacketPlots.getInstance(), () -> {
+			chunk.sendTiles(conn.getPlayer());
+		});
+
 		return false;
 	}
 
@@ -50,15 +54,5 @@ public class MapChunkPacketInterceptor extends PacketInterceptor<PacketPlayOutMa
 
 	public static void register() {
 		InterceptorRegistry.register(new MapChunkPacketInterceptor());
-	}
-
-	static {
-		try {
-			xCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "a", int.class);
-			zCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "b", int.class);
-			chunkMapField = new FieldAccess<>(PacketPlayOutMapChunk.class, "c", ChunkMap.class);
-		} catch (NoSuchFieldException | SecurityException e) {
-			e.printStackTrace();
-		}
 	}
 }

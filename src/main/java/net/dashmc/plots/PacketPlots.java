@@ -3,8 +3,11 @@ package net.dashmc.plots;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.logging.Level;
 
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import eu.okaeri.commands.Commands;
@@ -57,18 +60,18 @@ public class PacketPlots extends JavaPlugin {
 		});
 
 		plotConfig.validate();
+		Debug.setEnabled(plotConfig.isDebug());
 
-		Debug.log("Found config file... virtualizing region " + plotConfig.getRegion() + " with chunks "
+		Debug.log(() -> "Found config file... virtualizing region " + plotConfig.getRegion() + " with chunks "
 				+ Arrays.toString(plotConfig.getRegion().getChunks()));
 
 		environmentManager = new EnvironmentManager(new File(this.getDataFolder(), "data"), plotConfig,
 				getDescription().getVersion());
 
-		ConnectionListener.register(environmentManager);
+		ConnectionListener connectionListener = ConnectionListener.register(environmentManager);
 		PacketInterceptor.register();
 
 		commands = CommandsBukkit.of(this);
-		// commands.resultHandler(new BukkitCommandsResultHandler());
 
 		// injects the registered commands
 		OkaeriInjector injector = OkaeriInjector.create(true);
@@ -87,7 +90,13 @@ public class PacketPlots extends JavaPlugin {
 		commands.registerCommand(PlotCommand.class);
 
 		PluginCompatibility.load();
-		Debug.log("Loaded compatibilities: " + Arrays.toString(PluginCompatibility.getCompatibilities().toArray()));
+		Debug.log(() -> "Loaded compatibilities: "
+				+ Arrays.toString(PluginCompatibility.getCompatibilities().toArray()));
+
+		// players don't join again after a reload, so load the ones already online
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			connectionListener.join(player);
+		}
 
 		errored = false;
 	}
@@ -109,10 +118,11 @@ public class PacketPlots extends JavaPlugin {
 		try {
 			commands.close();
 		} catch (IOException e) {
-			e.printStackTrace();
+			getLogger().log(Level.WARNING, "Failed to close the commands", e);
 		}
 
-		environmentManager.saveAll();
+		// also removes everything the plugin added to players, so a reload starts clean
+		environmentManager.unloadAll();
 	}
 
 	@Override

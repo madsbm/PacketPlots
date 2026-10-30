@@ -8,7 +8,8 @@ import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.PacketPlayOutBlockChange;
 
 public class VirtualBlockChangePacket implements IPacketExtension<PacketPlayOutBlockChange> {
-	private static FieldAccess<BlockPosition> posField;
+	private static final FieldAccess<BlockPosition> posField = new FieldAccess<>(PacketPlayOutBlockChange.class,
+			"a", BlockPosition.class);
 
 	@Getter
 	private final PacketPlayOutBlockChange packet;
@@ -16,19 +17,6 @@ public class VirtualBlockChangePacket implements IPacketExtension<PacketPlayOutB
 	public VirtualBlockChangePacket(IEnvironment env, BlockPosition pos) {
 		packet = new PacketPlayOutBlockChange();
 		packet.block = env.getType(pos);
-
-		try {
-			posField.set(packet, pos);
-		} catch (IllegalArgumentException | IllegalAccessException e) {
-			e.printStackTrace();
-		}
-	}
-
-	static {
-		try {
-			posField = new FieldAccess<>(PacketPlayOutBlockChange.class, "a", BlockPosition.class);
-		} catch (NoSuchFieldException | SecurityException e) {
-			e.printStackTrace();
-		}
+		posField.set(packet, pos);
 	}
 }

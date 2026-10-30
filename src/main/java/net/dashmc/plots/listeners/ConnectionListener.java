@@ -1,9 +1,9 @@
 package net.dashmc.plots.listeners;
 
 import java.io.IOException;
+import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
-import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -12,9 +12,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.PacketPlots;
-import net.dashmc.plots.player.VirtualPlayerInteractManager;
 import net.dashmc.plots.plot.EnvironmentManager;
-import net.dashmc.plots.utils.misc.Debug;
 
 @RequiredArgsConstructor
 public class ConnectionListener implements Listener {
@@ -22,18 +20,7 @@ public class ConnectionListener implements Listener {
 
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
-		Player player = event.getPlayer();
-		try {
-			Debug.log(((CraftPlayer) player).getHandle().playerInteractManager.getClass().getName());
-			VirtualPlayerInteractManager.inject(player, environments);
-
-			environments.load(player);
-		} catch (IOException | IllegalArgumentException | IllegalAccessException e) {
-			Bukkit.getLogger()
-					.severe("A severe error occured whilst loading the PacketPlot of " + player.getUniqueId());
-			e.printStackTrace();
-		}
-
+		join(event.getPlayer());
 	}
 
 	@EventHandler
@@ -41,8 +28,23 @@ public class ConnectionListener implements Listener {
 		environments.unload(event.getPlayer());
 	}
 
-	public static void register(EnvironmentManager environments) {
-		Bukkit.getPluginManager().registerEvents(new ConnectionListener(environments), PacketPlots.getInstance());
+	/**
+	 * Loads the player's environment. Also used for players who were already
+	 * online when the plugin was enabled, e.g. by a reload.
+	 */
+	public void join(Player player) {
+		try {
+			environments.load(player);
+		} catch (IOException e) {
+			Bukkit.getLogger().log(Level.SEVERE,
+					"A severe error occured whilst loading the PacketPlot of " + player.getUniqueId(), e);
+		}
+	}
+
+	public static ConnectionListener register(EnvironmentManager environments) {
+		ConnectionListener listener = new ConnectionListener(environments);
+		Bukkit.getPluginManager().registerEvents(listener, PacketPlots.getInstance());
+		return listener;
 	}
 
 }

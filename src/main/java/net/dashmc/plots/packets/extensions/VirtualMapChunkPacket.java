@@ -7,9 +7,12 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 
 public class VirtualMapChunkPacket implements IPacketExtension<PacketPlayOutMapChunk> {
-	private static FieldAccess<Integer> xCoordField;
-	private static FieldAccess<Integer> zCoordField;
-	private static FieldAccess<ChunkMap> chunkMapField;
+	private static final FieldAccess<Integer> xCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "a",
+			int.class);
+	private static final FieldAccess<Integer> zCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "b",
+			int.class);
+	private static final FieldAccess<ChunkMap> chunkMapField = new FieldAccess<>(PacketPlayOutMapChunk.class, "c",
+			ChunkMap.class);
 
 	@Getter
 	private final PacketPlayOutMapChunk packet;
@@ -21,24 +24,10 @@ public class VirtualMapChunkPacket implements IPacketExtension<PacketPlayOutMapC
 	public VirtualMapChunkPacket(int chunkX, int chunkZ, ChunkMap chunkMap) {
 		packet = new PacketPlayOutMapChunk();
 
-		try {
-			xCoordField.set(packet, chunkX);
-			zCoordField.set(packet, chunkZ);
+		xCoordField.set(packet, chunkX);
+		zCoordField.set(packet, chunkZ);
 
-			if (chunkMap != null)
-				chunkMapField.set(packet, chunkMap);
-		} catch (IllegalArgumentException | IllegalAccessException e) {
-			e.printStackTrace();
-		}
-	}
-
-	static {
-		try {
-			xCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "a", int.class);
-			zCoordField = new FieldAccess<>(PacketPlayOutMapChunk.class, "b", int.class);
-			chunkMapField = new FieldAccess<>(PacketPlayOutMapChunk.class, "c", ChunkMap.class);
-		} catch (NoSuchFieldException | SecurityException e) {
-			e.printStackTrace();
-		}
+		if (chunkMap != null)
+			chunkMapField.set(packet, chunkMap);
 	}
 }

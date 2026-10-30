@@ -17,7 +17,7 @@ public class VirtualFenceGateBlock extends VirtualBlock<BlockFenceGate> {
 	public AxisAlignedBB getCollisionBoundingBox(BlockFenceGate block, IEnvironment env, BlockPosition pos,
 			IBlockData state) {
 
-		Debug.log(block.getClass() + ", " + state.toString());
+		Debug.log(() -> block.getClass() + ", " + state.toString());
 
 		return block.a(null, pos, state);
 	}

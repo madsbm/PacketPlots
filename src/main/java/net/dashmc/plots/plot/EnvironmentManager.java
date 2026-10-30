@@ -21,7 +21,7 @@ import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
 import net.dashmc.plots.config.PlotConfig;
-import net.dashmc.plots.plot.data.BlockBag;
+import net.dashmc.plots.player.VirtualPlayerInteractManager;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
@@ -86,19 +86,20 @@ public class EnvironmentManager {
 			try (DataInputStream dataInputStream = new DataInputStream(
 					new BufferedInputStream(new FileInputStream(dataFile)))) {
 				readVersionCode(dataInputStream);
-				environment = new CuboidEnvironment(dataInputStream);
+				environment = new CuboidEnvironment(player, dataInputStream);
 			}
 
 			if (!uuid.equals(environment.getOwnerUuid()))
 				throw new IOException("Mismatched UUIDs: (" + uuid + " => " + environment.getOwnerUuid()
 						+ "). File might be corrupt");
 		} else {
-			Debug.log("No save file could be found for " + player.getName());
+			Debug.log(() -> "No save file could be found for " + player.getName());
 
-			environment = new CuboidEnvironment(uuid, config.getWorld(), config.getRegion());
+			environment = new CuboidEnvironment(player, config.getWorld(), config.getRegion());
 			save(environment);
 		}
 
+		VirtualPlayerInteractManager.inject(player, this);
 		environments.put(uuid, environment);
 		startVirtualization(player);
 		return environment;
@@ -119,8 +120,33 @@ public class EnvironmentManager {
 			environment.close();
 		}
 
-		// only after saving, as the block bag is saved with the environment
-		BlockBag.removeBlockBag(player);
+		VirtualPlayerInteractManager.uninject(player);
+	}
+
+	/**
+	 * Unloads every environment, for when the plugin is disabled. Every player is
+	 * sent their real chunks, and keeps no trace of the plugin: no Netty handler
+	 * and no VirtualPlayerInteractManager.
+	 */
+	public void unloadAll() {
+		// connections are closed first, so closing an environment doesn't send its
+		// visitors back to their own
+		for (VirtualConnection connection : connections.values()) {
+			IEnvironment shown = connection.getEnvironment();
+			connection.close();
+			sendRealChunks(connection.getPlayer(), shown);
+		}
+		connections.clear();
+
+		for (CuboidEnvironment environment : environments.values()) {
+			save(environment);
+			environment.close();
+		}
+		environments.clear();
+
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			VirtualPlayerInteractManager.uninject(player);
+		}
 	}
 
 	public void saveAll() {
@@ -158,8 +184,12 @@ public class EnvironmentManager {
 		connections.remove(player.getUniqueId());
 		connection.close();
 
+		sendRealChunks(handle, environment);
+	}
+
+	private static void sendRealChunks(EntityPlayer player, IEnvironment environment) {
 		for (VirtualChunk chunk : environment.getChunks()) {
-			handle.playerConnection.sendPacket(new PacketPlayOutMapChunk(chunk.getChunk(), false, 65535));
+			player.playerConnection.sendPacket(new PacketPlayOutMapChunk(chunk.getChunk(), false, 65535));
 		}
 	}
 

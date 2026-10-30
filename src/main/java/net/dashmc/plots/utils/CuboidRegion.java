@@ -1,6 +1,5 @@
 package net.dashmc.plots.utils;
 
-import org.apache.logging.log4j.util.TriConsumer;
 import org.bukkit.Location;
 import lombok.Getter;
 import net.dashmc.plots.plot.data.VirtualChunk;
@@ -10,6 +9,14 @@ import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
 
 public class CuboidRegion {
+
+	/**
+	 * Consumes the x, y and z coordinates of a location, without boxing them.
+	 */
+	@FunctionalInterface
+	public interface CoordinateConsumer {
+		void accept(int x, int y, int z);
+	}
 
 	@Getter
 	private final BlockPosition pos1, pos2;
@@ -76,13 +83,18 @@ public class CuboidRegion {
 		return (getMin().equals(otherRegion.getMin())) && (getMax().equals(otherRegion.getMax()));
 	}
 
+	@Override
+	public int hashCode() {
+		return 31 * getMin().hashCode() + getMax().hashCode();
+	}
+
 	/**
 	 * Iterate over each location inside of both the cuboid region and the given
 	 * chunk
 	 * 
 	 * @param consumer Consumes x,y,z coordinate of location
 	 */
-	public void forEachInside(Section section, TriConsumer<Integer, Integer, Integer> consumer) {
+	public void forEachInside(Section section, CoordinateConsumer consumer) {
 		VirtualChunk chunk = section.getVirtualChunk();
 
 		int chunkMinX = chunk.getCoordPair().x << 4;
@@ -111,12 +123,12 @@ public class CuboidRegion {
 	 * 
 	 * @param consumer Consumes x,y,z coordinate of location
 	 */
-	public void forEach(TriConsumer<Integer, Integer, Integer> consumer) {
+	public void forEach(CoordinateConsumer consumer) {
 		forEach(minX, minY, minZ, maxX, maxY, maxZ, consumer);
 	}
 
 	private void forEach(int minX, int minY, int minZ, int maxX, int maxY, int maxZ,
-			TriConsumer<Integer, Integer, Integer> consumer) {
+			CoordinateConsumer consumer) {
 		for (int x = minX; x <= maxX; x++) {
 			for (int y = minY; y <= maxY; y++) {
 				for (int z = minZ; z <= maxZ; z++) {

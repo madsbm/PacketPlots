@@ -16,7 +16,7 @@ import net.minecraft.server.v1_8_R3.ItemDoor;
 import net.minecraft.server.v1_8_R3.ItemStack;
 
 public class VirtualItemDoor extends VirtualItem<ItemDoor> {
-	private static FieldAccess<Block> blockField;
+	private static final FieldAccess<Block> blockField = new FieldAccess<>(ItemDoor.class, "a", Block.class);
 
 	@Override
 	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
@@ -24,7 +24,7 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 		if (direction != EnumDirection.UP)
 			return false;
 
-		Debug.log("interact with called on item door. is border place? " + isBorderPlace);
+		Debug.log(() -> "interact with called on item door. is border place? " + isBorderPlace);
 
 		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block currBlock = ibd.getBlock();
@@ -36,12 +36,7 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 		if (!PlacementRules.canPlace(environment, pos, direction, item, player))
 			return false;
 
-		Block toPlace;
-		try {
-			toPlace = (Block) blockField.get(((ItemDoor) item.getItem()));
-		} catch (IllegalArgumentException | IllegalAccessException e) {
-			throw new RuntimeException(e);
-		}
+		Block toPlace = blockField.get(item.getItem());
 
 		if (!PlacementRules.isBuildable(environment, toPlace, pos, false, direction, player, item))
 			return false;
@@ -49,7 +44,7 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 		placeDoor(environment, pos, EnumDirection.fromAngle((double) player.yaw), toPlace);
 		--item.count;
 
-		Debug.log("placed door @ " + pos);
+		Debug.log(() -> "placed door @ " + pos);
 		return true;
 	}
 
@@ -82,13 +77,5 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 	@Override
 	public Class<ItemDoor> getClazz() {
 		return ItemDoor.class;
-	}
-
-	static {
-		try {
-			blockField = new FieldAccess<>(ItemDoor.class, "a", Block.class);
-		} catch (NoSuchFieldException | SecurityException e) {
-			e.printStackTrace();
-		}
 	}
 }

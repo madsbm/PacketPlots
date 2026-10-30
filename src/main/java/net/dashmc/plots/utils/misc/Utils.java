@@ -1,6 +1,5 @@
 package net.dashmc.plots.utils.misc;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import org.bukkit.Location;
@@ -45,8 +44,13 @@ public class Utils {
 
 	// nms
 
-	static private Method getOrCreatePlayerChunk;
+	// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerChunkMap.java#L88
+	private static final Method getOrCreatePlayerChunk = findGetOrCreatePlayerChunk();
 
+	/**
+	 * @return a sender of packets to the players who have the chunk loaded, or null
+	 *         if none do
+	 */
 	public static MethodWrapper<Void> getRelatedPlayerPacketSender(int chunkX, int chunkZ, WorldServer server) {
 		PlayerChunkMap playerChunkMap = server.getPlayerChunkMap();
 		if (!playerChunkMap.isChunkInUse(chunkX, chunkZ))
@@ -58,20 +62,18 @@ public class Utils {
 			Method packetSender = playerChunk.getClass().getMethod("a", Packet.class);
 			packetSender.setAccessible(true);
 			return new MethodWrapper<Void>(playerChunk, packetSender);
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException
-				| SecurityException e) {
-			e.printStackTrace();
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Couldn't get the packet sender of chunk " + chunkX + ", " + chunkZ, e);
 		}
-
-		return null;
 	}
 
-	static {
+	private static Method findGetOrCreatePlayerChunk() {
 		try {
-			// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerChunkMap.java#L88
-			getOrCreatePlayerChunk = PlayerChunkMap.class.getDeclaredMethod("a", int.class, int.class, boolean.class);
-			getOrCreatePlayerChunk.setAccessible(true);
-		} catch (Exception e) {
+			Method method = PlayerChunkMap.class.getDeclaredMethod("a", int.class, int.class, boolean.class);
+			method.setAccessible(true);
+			return method;
+		} catch (NoSuchMethodException e) {
+			throw new IllegalStateException("PlayerChunkMap has no method a(int, int, boolean)", e);
 		}
 	}
 }

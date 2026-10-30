@@ -13,6 +13,7 @@ import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
+import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import com.google.common.collect.Lists;
 
@@ -56,36 +57,33 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 	private @Getter UUID ownerUuid;
 	private @Getter CuboidRegion region;
 	private @Getter @Setter RenderPipeline renderPipeline = RenderPipelineFactory.createEmptyPipeline();
+	private @Getter final BlockBag blockBag;
 
 	/**
 	 * Creates a new environment for the owner, copying the region from the world.
 	 */
-	public CuboidEnvironment(UUID ownerUuid, World world, CuboidRegion region) {
-		this.ownerUuid = ownerUuid;
+	public CuboidEnvironment(Player owner, World world, CuboidRegion region) {
+		this.ownerUuid = owner.getUniqueId();
+		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle());
 		this.world = world;
 		this.nmsWorld = ((CraftWorld) world).getHandle();
 		this.region = region;
 
-		Debug.log(Arrays.toString(region.getChunks()));
+		Debug.log(() -> Arrays.toString(region.getChunks()));
 
 		for (ChunkCoordIntPair coord : region.getChunks()) {
-			Debug.log("creating chunk @ " + coord.toString());
+			Debug.log(() -> "creating chunk @ " + coord.toString());
 			VirtualChunk chunk = new VirtualChunk(this, coord);
-			Debug.log("created chunk " + chunk);
+			Debug.log(() -> "created chunk " + chunk);
 			virtualChunks.put(coord.hashCode(), chunk);
 		}
-
-		// HashSet<ChunkConfig> chunks = PacketPlots.getPlotConfig().getVirtualChunks();
-		// for (ChunkConfig chunk : chunks) {
-		// virtualChunks.put(chunk.coords.hashCode(),
-		// new VirtualChunk(this, chunk.coords, nmsWorld, chunk.getSectionsAsMask()));
-		// }
 	}
 
 	/**
-	 * Loads an environment from data written by {@link #serialize}.
+	 * Loads the owner's environment from data written by {@link #serialize}.
 	 */
-	public CuboidEnvironment(DataInputStream stream) throws IOException {
+	public CuboidEnvironment(Player owner, DataInputStream stream) throws IOException {
+		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle());
 		deserialize(stream);
 	}
 
@@ -178,7 +176,7 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 		boolean succeeded = chunk.setBlock(pos, blockData);
 		if (succeeded) {
 			// any blocks removed due to physics will become property of environment owner
-			notify(pos, BlockBag.getBlockBag(getOwner()));
+			notify(pos, blockBag);
 		}
 
 		return succeeded;
@@ -230,11 +228,11 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 			virtualChunks.put(chunk.getCoordPair().hashCode(), chunk);
 		}
 
-		Debug.log("Loaded chunks from save file: " + virtualChunks.size());
+		Debug.log(() -> "Loaded chunks from save file: " + virtualChunks.size());
 		// TODO: if the loaded region != the saved one, delete blocks and add to block
 		// bag.
 
-		getBlockBag().deserialize(stream);
+		blockBag.deserialize(stream);
 	}
 
 	@Override
@@ -269,16 +267,7 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 			virtualChunk.serialize(stream);
 		}
 
-		getBlockBag().serialize(stream);
-	}
-
-	@Override
-	public BlockBag getBlockBag() {
-		return BlockBag.getBlockBag(getOwner());
-	}
-
-	private Player getOwner() {
-		return Bukkit.getPlayer(ownerUuid);
+		blockBag.serialize(stream);
 	}
 
 	// same as World#getBlockPower and World#isEmpty

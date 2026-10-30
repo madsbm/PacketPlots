@@ -20,7 +20,7 @@ public class PluginCompatibility {
 		for (CompatibilityMode mode : CompatibilityMode.values()) {
 			boolean shouldActivate = mode.shouldActivate();
 
-			Debug.log("Activating compat. mode " + mode.toString() + ": " + shouldActivate);
+			Debug.log(() -> "Activating compat. mode " + mode.toString() + ": " + shouldActivate);
 			if (!shouldActivate)
 				continue;
 

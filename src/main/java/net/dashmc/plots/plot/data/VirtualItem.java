@@ -90,7 +90,7 @@ public abstract class VirtualItem<T extends Item> {
 			IBlockData prevBlockData = env.getType(placedAt);
 			boolean flag = virtualItem.interactWith(itemStack, entityhuman, env, clicked, dir, cX, cY, cZ,
 					isBorderPlace);
-			Debug.log("Interact with flag: " + flag);
+			Debug.log(() -> "Interact with flag: " + flag);
 
 			int newData = itemStack.getData();
 			int newCount = itemStack.count;

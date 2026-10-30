@@ -5,7 +5,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.Objects;
 
 import org.bukkit.Bukkit;
@@ -17,7 +16,6 @@ import eu.okaeri.configs.annotation.Comment;
 import lombok.Getter;
 import net.dashmc.plots.PacketPlots;
 import net.dashmc.plots.utils.CuboidRegion;
-import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
 
 @Getter
 public class PlotConfig extends OkaeriConfig {
@@ -43,20 +41,6 @@ public class PlotConfig extends OkaeriConfig {
 		return antiCheatDisabledRegion;
 	}
 
-	public class ChunkConfig extends OkaeriConfig {
-		public ChunkCoordIntPair coords;
-		public ArrayList<Integer> sections = new ArrayList<>();
-
-		public char getSectionsAsMask() {
-			char mask = 0;
-			for (int section : sections) {
-				mask |= 1 << section;
-			}
-
-			return mask;
-		}
-	}
-
 	@Comment("World to virtualize the chunks in")
 	World world = Bukkit.getWorlds().get(0);
 
@@ -70,18 +54,24 @@ public class PlotConfig extends OkaeriConfig {
 		return safeLocation;
 	}
 
+	@Comment("Log what the plugin is doing, for debugging. Very verbose.")
+	boolean debug = false;
+
 	public void validate() {
 		for (Field field : getClass().getDeclaredFields()) {
 			if (field.isAnnotationPresent(NotRequired.class))
 				continue;
 
+			Object value;
 			try {
-				Object value = field.get(this);
-				Objects.requireNonNull(value, "Field " + field.getName() + " is null in "
-						+ PacketPlots.getInstance().getName() + " configuration!");
-			} catch (IllegalArgumentException | IllegalAccessException e) {
-				e.printStackTrace();
+				value = field.get(this);
+			} catch (IllegalAccessException e) {
+				// can't happen, as the fields are declared in this class
+				throw new IllegalStateException("Couldn't read config field " + field.getName(), e);
 			}
+
+			Objects.requireNonNull(value, "Field " + field.getName() + " is null in "
+					+ PacketPlots.getInstance().getName() + " configuration!");
 		}
 	}
 

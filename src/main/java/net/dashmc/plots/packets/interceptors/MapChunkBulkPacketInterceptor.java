@@ -2,6 +2,7 @@ package net.dashmc.plots.packets.interceptors;
 
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
 
@@ -20,45 +21,48 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunkBulk;
 // https://minecraft.wiki/w/Protocol?oldid=2772100#Map_Chunk_Bulk
 public class MapChunkBulkPacketInterceptor extends PacketInterceptor<PacketPlayOutMapChunkBulk> {
 	protected static final HashSet<Integer> coordPairs = new HashSet<>();
-	private static FieldAccess<int[]> xCoordField;
-	private static FieldAccess<int[]> zCoordField;
-	private static FieldAccess<ChunkMap[]> chunkMapField;
+	private static final FieldAccess<int[]> xCoordField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "a",
+			int[].class);
+	private static final FieldAccess<int[]> zCoordField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "b",
+			int[].class);
+	private static final FieldAccess<ChunkMap[]> chunkMapField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class,
+			"c", ChunkMap[].class);
 
 	@Override
 	public boolean intercept(PacketPlayOutMapChunkBulk packet, VirtualConnection conn) {
 		IEnvironment env = conn.getEnvironment();
 
-		try {
-			LinkedList<Integer> indices = new LinkedList<>();
+		LinkedList<Integer> indices = new LinkedList<>();
 
-			int[] xCoords = (int[]) xCoordField.get(packet);
-			int[] zCoords = (int[]) zCoordField.get(packet);
-			ChunkMap[] chunkMaps = (ChunkMap[]) chunkMapField.get(packet);
+		int[] xCoords = xCoordField.get(packet);
+		int[] zCoords = zCoordField.get(packet);
+		ChunkMap[] chunkMaps = chunkMapField.get(packet);
 
-			for (int i = 0; i < xCoords.length; i++) {
-				int hash = Utils.getChunkCoordHash(xCoords[i], zCoords[i]);
-				if (coordPairs.contains(hash)) {
-					indices.add(i);
-				}
+		for (int i = 0; i < xCoords.length; i++) {
+			int hash = Utils.getChunkCoordHash(xCoords[i], zCoords[i]);
+			if (coordPairs.contains(hash)) {
+				indices.add(i);
 			}
+		}
 
-			for (int i : indices) {
-				VirtualChunk chunk = env.getChunk(xCoords[i], zCoords[i]);
+		for (int i : indices) {
+			// null if the environment closed or changed while the packet was on its way
+			VirtualChunk chunk = env.getChunk(xCoords[i], zCoords[i]);
+			if (chunk == null)
+				continue;
 
-				Bukkit.getScheduler().runTask(PacketPlots.getInstance(), () -> {
-					chunk.sendTiles(conn.getPlayer());
-				});
+			Bukkit.getScheduler().runTask(PacketPlots.getInstance(), () -> {
+				chunk.sendTiles(conn.getPlayer());
+			});
 
-				try {
-					ChunkMap chunkMap = env.getRenderPipeline().render(chunk);
-					chunkMaps[i] = chunkMap;
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
+			// a chunk that fails to render is sent as it really is, rather than failing
+			// the whole packet
+			try {
+				chunkMaps[i] = env.getRenderPipeline().render(chunk);
+			} catch (RuntimeException e) {
+				Bukkit.getLogger().log(Level.SEVERE, "Failed rendering virtual chunk " + xCoords[i] + ", "
+						+ zCoords[i] + " for " + conn.getPlayer().getName(), e);
 			}
-
-		} catch (IllegalArgumentException | IllegalAccessException e) {
-			e.printStackTrace();
 		}
 
 		return false;
@@ -77,14 +81,6 @@ public class MapChunkBulkPacketInterceptor extends PacketInterceptor<PacketPlayO
 		ChunkCoordIntPair[] pairs = PacketPlots.getPlotConfig().getRegion().getChunks();
 		for (ChunkCoordIntPair pair : pairs) {
 			coordPairs.add(pair.hashCode());
-		}
-
-		try {
-			xCoordField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "a", int[].class);
-			zCoordField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "b", int[].class);
-			chunkMapField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "c", ChunkMap[].class);
-		} catch (NoSuchFieldException | SecurityException e) {
-			e.printStackTrace();
 		}
 	}
 }

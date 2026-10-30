@@ -1,7 +1,5 @@
 package net.dashmc.plots.plot.data.blocks;
 
-import java.lang.reflect.InvocationTargetException;
-
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.BlockBag;
 import net.dashmc.plots.plot.data.VirtualBlock;
@@ -22,11 +20,6 @@ public class VirtualBlockDoor extends VirtualBlock<BlockDoor> {
 	@Override
 	public void onBlockHarvested(BlockDoor block, IEnvironment environment, BlockPosition pos, IBlockData data,
 			BlockBag bag, TileEntity tile) {
-		// BlockPosition lower = pos.down();
-		// if (data.get(BlockDoor.HALF) == BlockDoor.EnumDoorHalf.UPPER
-		// && environment.getType(lower).getBlock() == block) {
-		// environment.setBlock(pos, Blocks.AIR.getBlockData(), 3);
-		// }
 		bag.add(block.getDropType(data, null, 0));
 	}
 
@@ -85,9 +78,8 @@ public class VirtualBlockDoor extends VirtualBlock<BlockDoor> {
 		try {
 			MethodWrapper<Void> updateBBMethod = new MethodWrapper<>(block, "k", int.class);
 			updateBBMethod.call(facing);
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException
-				| SecurityException e) {
-			e.printStackTrace();
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Couldn't update the bounding box of " + block, e);
 		}
 	}
 

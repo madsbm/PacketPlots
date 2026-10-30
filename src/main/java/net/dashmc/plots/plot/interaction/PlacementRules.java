@@ -37,8 +37,8 @@ public class PlacementRules {
 		} else if (curr.getMaterial() == Material.ORIENTABLE && block == Blocks.ANVIL) {
 			defaultReturn = true;
 		} else {
-			Debug.log("isReplaceable: " + curr.getMaterial().isReplaceable());
-			Debug.log("mayPlace: " + VirtualBlock.mayPlace(block, env, pos, dir, itemStack) + " (pos: "
+			Debug.log(() -> "isReplaceable: " + curr.getMaterial().isReplaceable());
+			Debug.log(() -> "mayPlace: " + VirtualBlock.mayPlace(block, env, pos, dir, itemStack) + " (pos: "
 					+ pos.toString() + ")");
 
 			defaultReturn = curr.getMaterial().isReplaceable()

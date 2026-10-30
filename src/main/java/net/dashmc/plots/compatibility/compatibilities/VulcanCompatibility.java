@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.logging.Level;
 
 import org.apache.commons.io.Charsets;
 import org.bukkit.Bukkit;
@@ -43,8 +44,8 @@ public class VulcanCompatibility extends CompatibilityLoader {
 
 			Boolean isGhostBlocksEnabled = vulcanConfig.getBoolean("ghost-blocks-fix.enabled");
 			Boolean isAPIEnabled = vulcanConfig.getBoolean("settings.enable-api");
-			Debug.log("Is ghost blocks enabled? " + isGhostBlocksEnabled);
-			Debug.log("Is api enabled? " + isAPIEnabled);
+			Debug.log(() -> "Is ghost blocks enabled? " + isGhostBlocksEnabled);
+			Debug.log(() -> "Is api enabled? " + isAPIEnabled);
 
 			boolean shouldReload = false;
 
@@ -72,7 +73,8 @@ public class VulcanCompatibility extends CompatibilityLoader {
 			Bukkit.getLogger().warning("Done! Reloading vulcan...");
 			Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), "vulcan reload");
 		} catch (IOException | InvalidConfigurationException e) {
-			e.printStackTrace();
+			Bukkit.getLogger().log(Level.WARNING, "[PacketPlots] Couldn't update " + confFile
+					+ ". Set ghost-blocks-fix.enabled to false and settings.enable-api to true by hand.", e);
 		}
 	}
 

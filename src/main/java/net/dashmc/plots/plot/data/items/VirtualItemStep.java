@@ -16,8 +16,10 @@ import net.minecraft.server.v1_8_R3.ItemStep;
 import net.minecraft.server.v1_8_R3.BlockStepAbstract.EnumSlabHalf;
 
 public class VirtualItemStep extends VirtualItem<ItemStep> {
-	private static FieldAccess<BlockStepAbstract> stepField;
-	private static FieldAccess<BlockStepAbstract> doubleField;
+	private static final FieldAccess<BlockStepAbstract> stepField = new FieldAccess<>(ItemStep.class, "b",
+			BlockStepAbstract.class);
+	private static final FieldAccess<BlockStepAbstract> doubleField = new FieldAccess<>(ItemStep.class, "c",
+			BlockStepAbstract.class);
 
 	@Override
 	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
@@ -27,48 +29,43 @@ public class VirtualItemStep extends VirtualItem<ItemStep> {
 		else if (!PlacementRules.canPlace(environment, pos, direction, item, player))
 			return false;
 
-		try {
-			BlockStepAbstract blockStep = (BlockStepAbstract) stepField.get(item.getItem());
-			IBlockData ibd = environment.getType(pos);
-			if (ibd.getBlock() == blockStep) {
-				IBlockState<?> ibs = blockStep.n();
-				Comparable<?> comparable = ibd.get(ibs);
+		BlockStepAbstract blockStep = stepField.get(item.getItem());
+		IBlockData ibd = environment.getType(pos);
+		if (ibd.getBlock() == blockStep) {
+			IBlockState<?> ibs = blockStep.n();
+			Comparable<?> comparable = ibd.get(ibs);
 
-				EnumSlabHalf halfSlab = ibd.get(BlockStepAbstract.HALF);
+			EnumSlabHalf halfSlab = ibd.get(BlockStepAbstract.HALF);
 
-				boolean isBottomPlace = direction == EnumDirection.UP && halfSlab == EnumSlabHalf.BOTTOM;
-				boolean isTopPlace = direction == EnumDirection.DOWN && halfSlab == EnumSlabHalf.TOP;
-				if ((isBottomPlace || isTopPlace) && comparable == blockStep.a(item)) {
-					BlockStepAbstract fullBlock = (BlockStepAbstract) doubleField.get(item.getItem());
+			boolean isBottomPlace = direction == EnumDirection.UP && halfSlab == EnumSlabHalf.BOTTOM;
+			boolean isTopPlace = direction == EnumDirection.DOWN && halfSlab == EnumSlabHalf.TOP;
+			if ((isBottomPlace || isTopPlace) && comparable == blockStep.a(item)) {
+				BlockStepAbstract fullBlock = doubleField.get(item.getItem());
 
-					@SuppressWarnings({ "rawtypes", "unchecked" })
-					IBlockData updated = fullBlock.getBlockData().set((IBlockState) ibs, (Comparable) comparable);
+				@SuppressWarnings({ "rawtypes", "unchecked" })
+				IBlockData updated = fullBlock.getBlockData().set((IBlockState) ibs, (Comparable) comparable);
 
-					if (environment.setBlock(pos, updated, 3))
-						item.count--;
+				if (environment.setBlock(pos, updated, 3))
+					item.count--;
 
-					return true;
-				}
+				return true;
 			}
+		}
 
-			ibd = environment.getType(pos.shift(direction));
-			if (ibd.getBlock() == blockStep) {
-				IBlockState<?> ibs = blockStep.n();
-				Comparable<?> comparable = ibd.get(ibs);
-				if (comparable == blockStep.a(item)) {
-					BlockStepAbstract fullBlock = (BlockStepAbstract) doubleField.get(item.getItem());
-					@SuppressWarnings({ "rawtypes", "unchecked" })
-					IBlockData updated = fullBlock.getBlockData().set((IBlockState) ibs, (Comparable) comparable);
+		ibd = environment.getType(pos.shift(direction));
+		if (ibd.getBlock() == blockStep) {
+			IBlockState<?> ibs = blockStep.n();
+			Comparable<?> comparable = ibd.get(ibs);
+			if (comparable == blockStep.a(item)) {
+				BlockStepAbstract fullBlock = doubleField.get(item.getItem());
+				@SuppressWarnings({ "rawtypes", "unchecked" })
+				IBlockData updated = fullBlock.getBlockData().set((IBlockState) ibs, (Comparable) comparable);
 
-					if (environment.setBlock(pos.shift(direction), updated, 3))
-						item.count--;
+				if (environment.setBlock(pos.shift(direction), updated, 3))
+					item.count--;
 
-					return true;
-				}
+				return true;
 			}
-
-		} catch (IllegalArgumentException | IllegalAccessException | NullPointerException e) {
-			e.printStackTrace();
 		}
 
 		return VirtualItem.getVirtualItems().get(ItemBlock.class).interactWith(item, player, environment, pos,
@@ -78,15 +75,6 @@ public class VirtualItemStep extends VirtualItem<ItemStep> {
 	@Override
 	public Class<ItemStep> getClazz() {
 		return ItemStep.class;
-	}
-
-	static {
-		try {
-			stepField = new FieldAccess<>(ItemStep.class, "b", BlockStepAbstract.class);
-			doubleField = new FieldAccess<>(ItemStep.class, "c", BlockStepAbstract.class);
-		} catch (NoSuchFieldException | SecurityException e) {
-			e.printStackTrace();
-		}
 	}
 
 }
