@@ -29,7 +29,8 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 			return false;
 
 		Block toPlace = ((ItemBlock) item.getItem()).d();
-		Debug.log(() -> 
+		// not lazy, as pos is reassigned above
+		Debug.log(
 				"Trying to place at " + pos.toString() + " ( " + toPlace.toString() + " on " + block.toString() + " )");
 
 		if (item.count == 0)

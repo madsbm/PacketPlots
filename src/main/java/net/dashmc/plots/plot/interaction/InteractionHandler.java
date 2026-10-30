@@ -87,7 +87,8 @@ public class InteractionHandler {
 			}
 
 			Debug.log(() -> "Item is: " + item);
-			Debug.log(() -> "Result is: " + result);
+			// not lazy, as result changes below
+			Debug.log("Result is: " + result);
 
 			if (item != null && !result) {
 				int data = item.getData();
@@ -248,8 +249,6 @@ public class InteractionHandler {
 
 	// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerInteractManager.java#L249
 	private boolean breakBlock(IEnvironment env, EntityPlayer player, BlockPosition pos) {
-		VirtualBlockBreakEvent ev = null;
-
 		boolean isSword = player.playerInteractManager.getGameMode().d() && player.bA() != null
 				&& player.bA().getItem() instanceof ItemSword;
 		if (env.getTileEntity(pos) == null && !isSword) {
@@ -259,7 +258,7 @@ public class InteractionHandler {
 
 		}
 
-		ev = new VirtualBlockBreakEvent(Utils.convertPosToLoc(env.getRealWorld(), pos), env);
+		VirtualBlockBreakEvent ev = new VirtualBlockBreakEvent(Utils.convertPosToLoc(env.getRealWorld(), pos), env);
 		ev.setCancelled(isSword);
 
 		IBlockData nmsData = env.getType(pos);

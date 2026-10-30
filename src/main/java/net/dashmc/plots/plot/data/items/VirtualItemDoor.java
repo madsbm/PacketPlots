@@ -44,7 +44,8 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 		placeDoor(environment, pos, EnumDirection.fromAngle((double) player.yaw), toPlace);
 		--item.count;
 
-		Debug.log(() -> "placed door @ " + pos);
+		// not lazy, as pos is reassigned above
+		Debug.log("placed door @ " + pos);
 		return true;
 	}
 
