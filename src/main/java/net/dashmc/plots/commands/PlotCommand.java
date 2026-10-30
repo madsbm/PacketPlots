@@ -58,7 +58,7 @@ public class PlotCommand implements CommandService {
 			return RawResponse.of("Spilleren {name}s plot er ikke indlæst, og du kan derfor ikke besøge det.")
 					.with("name", name);
 
-		VirtualConnection conn = VirtualConnection.get(sender);
+		VirtualConnection conn = PacketPlots.getEnvironmentManager().getConnection(sender);
 		conn.visit(other);
 
 		return RawResponse.of("Du besøger nu {name}'s plot!")

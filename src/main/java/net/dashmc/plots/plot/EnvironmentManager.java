@@ -29,7 +29,7 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk;
 
 /**
  * Loads, saves and keeps track of the environments of online players, and
- * turns virtualization on and off for them.
+ * turns virtualization on and off for them, keeping track of their connections.
  *
  * Save file structure:
  * version length (4 bytes - int)
@@ -41,6 +41,7 @@ public class EnvironmentManager {
 	private final PlotConfig config;
 	private final String pluginVersion;
 	private final HashMap<UUID, CuboidEnvironment> environments = new HashMap<>();
+	private final HashMap<UUID, VirtualConnection> connections = new HashMap<>();
 
 	public EnvironmentManager(File dataDirectory, PlotConfig config, String pluginVersion) {
 		this.dataDirectory = dataDirectory;
@@ -60,6 +61,13 @@ public class EnvironmentManager {
 
 	public Collection<IEnvironment> getActive() {
 		return Collections.unmodifiableCollection(environments.values());
+	}
+
+	/**
+	 * @return the player's connection, or null if virtualization is off for them
+	 */
+	public VirtualConnection getConnection(Player player) {
+		return connections.get(player.getUniqueId());
 	}
 
 	/**
@@ -101,7 +109,7 @@ public class EnvironmentManager {
 	 * environment, sending its visitors back to their own.
 	 */
 	public void unload(Player player) {
-		VirtualConnection connection = VirtualConnection.get(player);
+		VirtualConnection connection = connections.remove(player.getUniqueId());
 		if (connection != null)
 			connection.close();
 
@@ -122,15 +130,15 @@ public class EnvironmentManager {
 	}
 
 	public void startVirtualization(Player player) {
-		EntityPlayer handle = ((CraftPlayer) player).getHandle();
-		if (VirtualConnection.get(handle) != null)
+		if (connections.containsKey(player.getUniqueId()))
 			return;
 
 		IEnvironment environment = get(player);
 		if (environment == null)
 			return;
 
-		VirtualConnection connection = VirtualConnection.establish(handle, environment);
+		VirtualConnection connection = VirtualConnection.establish(((CraftPlayer) player).getHandle(), environment);
+		connections.put(player.getUniqueId(), connection);
 		environment.addViewer(connection);
 
 		connection.refreshVirtualizedChunks();
@@ -142,11 +150,12 @@ public class EnvironmentManager {
 	 */
 	public void stopVirtualization(Player player) {
 		EntityPlayer handle = ((CraftPlayer) player).getHandle();
-		VirtualConnection connection = VirtualConnection.get(handle);
+		VirtualConnection connection = connections.get(player.getUniqueId());
 		IEnvironment environment = get(player);
 		if (connection == null || environment == null)
 			return;
 
+		connections.remove(player.getUniqueId());
 		connection.close();
 
 		for (VirtualChunk chunk : environment.getChunks()) {

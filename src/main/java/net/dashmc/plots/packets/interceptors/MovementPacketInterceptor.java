@@ -8,6 +8,7 @@ import org.bukkit.util.NumberConversions;
 
 import net.dashmc.plots.PacketPlots;
 import net.dashmc.plots.events.VirtualPlayerMoveEvent;
+import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.utils.CuboidRegion;
@@ -181,10 +182,10 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 
 	public static void register() {
 		INSTANCE = new MovementPacketInterceptor();
-		VirtualConnection.registerInterceptor(INSTANCE);
-		VirtualConnection.registerInterceptor(new LookPacketInterceptor());
-		VirtualConnection.registerInterceptor(new PositionPacketInterceptor());
-		VirtualConnection.registerInterceptor(new PositionLookPacketInterceptor());
+		InterceptorRegistry.register(INSTANCE);
+		InterceptorRegistry.register(new LookPacketInterceptor());
+		InterceptorRegistry.register(new PositionPacketInterceptor());
+		InterceptorRegistry.register(new PositionLookPacketInterceptor());
 	}
 
 	public static class LookPacketInterceptor extends PacketInterceptor<PacketPlayInLook> {

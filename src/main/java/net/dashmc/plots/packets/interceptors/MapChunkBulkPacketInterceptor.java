@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import org.bukkit.Bukkit;
 
 import net.dashmc.plots.PacketPlots;
+import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
@@ -69,7 +70,7 @@ public class MapChunkBulkPacketInterceptor extends PacketInterceptor<PacketPlayO
 	}
 
 	public static void register() {
-		VirtualConnection.registerInterceptor(new MapChunkBulkPacketInterceptor());
+		InterceptorRegistry.register(new MapChunkBulkPacketInterceptor());
 	}
 
 	static {

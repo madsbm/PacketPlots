@@ -1,6 +1,7 @@
 package net.dashmc.plots.packets.interceptors;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.plot.IEnvironment;
@@ -99,6 +100,6 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 	}
 
 	public static void register(InteractionHandler interactions) {
-		VirtualConnection.registerInterceptor(new BlockDigPacketInterceptor(interactions));
+		InterceptorRegistry.register(new BlockDigPacketInterceptor(interactions));
 	}
 }

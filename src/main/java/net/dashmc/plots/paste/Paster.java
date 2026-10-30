@@ -10,9 +10,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
+import net.dashmc.plots.packets.extensions.VirtualMapChunkPacket;
 import net.dashmc.plots.pipeline.RenderPipeline;
 import net.dashmc.plots.plot.IEnvironment;
-import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.helpers.MethodWrapper;
 import net.dashmc.plots.utils.misc.Utils;
@@ -46,7 +46,7 @@ public class Paster {
 		ChunkMap map = pipeline.render(chunk);
 
 		try {
-			PacketPlayOutMapChunk packet = VirtualConnection.getRenderPacket(atChunkX, atChunkZ, map);
+			PacketPlayOutMapChunk packet = new VirtualMapChunkPacket(atChunkX, atChunkZ, map).getPacket();
 			packetSender.call(packet);
 		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			e.printStackTrace();

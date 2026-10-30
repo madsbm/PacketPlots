@@ -1,5 +1,6 @@
 package net.dashmc.plots.packets.interceptors;
 
+import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
@@ -24,6 +25,6 @@ public class WindowClosePacketInterceptor extends PacketInterceptor<PacketPlayIn
 	}
 
 	public static void register() {
-		VirtualConnection.registerInterceptor(new WindowClosePacketInterceptor());
+		InterceptorRegistry.register(new WindowClosePacketInterceptor());
 	}
 }

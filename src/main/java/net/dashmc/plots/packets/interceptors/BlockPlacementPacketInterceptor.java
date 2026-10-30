@@ -5,6 +5,7 @@ import org.bukkit.Location;
 import org.bukkit.util.NumberConversions;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.plot.IEnvironment;
@@ -113,6 +114,6 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 	}
 
 	public static void register(InteractionHandler interactions) {
-		VirtualConnection.registerInterceptor(new BlockPlacementPacketInterceptor(interactions));
+		InterceptorRegistry.register(new BlockPlacementPacketInterceptor(interactions));
 	}
 }

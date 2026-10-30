@@ -3,6 +3,7 @@ package net.dashmc.plots.packets.interceptors;
 import org.bukkit.Bukkit;
 
 import net.dashmc.plots.PacketPlots;
+import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
@@ -48,7 +49,7 @@ public class MapChunkPacketInterceptor extends PacketInterceptor<PacketPlayOutMa
 	}
 
 	public static void register() {
-		VirtualConnection.registerInterceptor(new MapChunkPacketInterceptor());
+		InterceptorRegistry.register(new MapChunkPacketInterceptor());
 	}
 
 	static {
