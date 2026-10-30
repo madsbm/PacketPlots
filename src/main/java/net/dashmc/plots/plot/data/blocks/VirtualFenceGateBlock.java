@@ -40,7 +40,7 @@ public class VirtualFenceGateBlock extends VirtualBlock<BlockFenceGate> {
 		}
 
 		int eventCode = ((Boolean) iblockdata.get(BlockFenceGate.OPEN)).booleanValue() ? 1003 : 1006;
-		environment.broadcastPacket(new PacketPlayOutWorldEvent(eventCode, blockposition, 0, false));
+		environment.broadcast(new PacketPlayOutWorldEvent(eventCode, blockposition, 0, false));
 		return true;
 	}
 

@@ -6,7 +6,7 @@ import java.lang.reflect.Modifier;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
-import net.dashmc.plots.plot.Environment;
+import net.dashmc.plots.plot.EnvironmentManager;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.Block;
@@ -20,15 +20,16 @@ import net.minecraft.server.v1_8_R3.PlayerInteractManager;
 public class VirtualPlayerInteractManager extends PlayerInteractManager {
 	private static FieldAccess<PlayerInteractManager> playerInteractManagerField;
 	private EntityPlayer player;
+	private EnvironmentManager environments;
 
-	public static VirtualPlayerInteractManager inject(Player player)
+	public static VirtualPlayerInteractManager inject(Player player, EnvironmentManager environments)
 			throws IllegalArgumentException, IllegalAccessException {
-		return inject(((CraftPlayer) player).getHandle());
+		return inject(((CraftPlayer) player).getHandle(), environments);
 	}
 
-	public static VirtualPlayerInteractManager inject(EntityPlayer player)
+	public static VirtualPlayerInteractManager inject(EntityPlayer player, EnvironmentManager environments)
 			throws IllegalArgumentException, IllegalAccessException {
-		VirtualPlayerInteractManager manager = new VirtualPlayerInteractManager(player);
+		VirtualPlayerInteractManager manager = new VirtualPlayerInteractManager(player, environments);
 		playerInteractManagerField.set(player, manager);
 		return manager;
 	}
@@ -48,10 +49,11 @@ public class VirtualPlayerInteractManager extends PlayerInteractManager {
 		}
 	}
 
-	private VirtualPlayerInteractManager(EntityPlayer player) {
+	private VirtualPlayerInteractManager(EntityPlayer player, EnvironmentManager environments) {
 		super(player.getWorld());
 		copyFields(player.playerInteractManager);
 		this.player = player;
+		this.environments = environments;
 	}
 
 	// called every tick
@@ -63,8 +65,8 @@ public class VirtualPlayerInteractManager extends PlayerInteractManager {
 		}
 
 		BlockPosition pos = getDestroyPosition();
-		IEnvironment env = Environment.get(player);
-		if (env == null || !env.isValidLocation(pos)) {
+		IEnvironment env = environments.get(player);
+		if (env == null || !env.contains(pos)) {
 			super.a();
 			return;
 		}
@@ -73,7 +75,7 @@ public class VirtualPlayerInteractManager extends PlayerInteractManager {
 
 		Block block = env.getType(pos).getBlock();
 		if (block.getMaterial() == Material.AIR) {
-			env.broadcastPacket(new PacketPlayOutBlockBreakAnimation(player.getId(), pos, -1));
+			env.broadcast(new PacketPlayOutBlockBreakAnimation(player.getId(), pos, -1));
 			setForce(0);
 			setIsDestroying(false);
 			return;
@@ -83,7 +85,7 @@ public class VirtualPlayerInteractManager extends PlayerInteractManager {
 		float f = block.getDamage(player, world, pos) * (float) (k + 1);
 		int force = (int) (f * 10.0F);
 		if (force != getForce()) {
-			env.broadcastPacket(new PacketPlayOutBlockBreakAnimation(player.getId(), pos, force));
+			env.broadcast(new PacketPlayOutBlockBreakAnimation(player.getId(), pos, force));
 			setForce(force);
 		}
 	}

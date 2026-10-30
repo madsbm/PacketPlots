@@ -37,7 +37,7 @@ public class EnderChestTileWrapper extends TileEntityEnderChest {
 
 		PacketPlayOutBlockAction chestOpenPacket = new PacketPlayOutBlockAction(this.position, Blocks.ENDER_CHEST, 1,
 				1);
-		environment.broadcastPacket(chestOpenPacket);
+		environment.broadcast(chestOpenPacket);
 	}
 
 	@Override
@@ -46,7 +46,7 @@ public class EnderChestTileWrapper extends TileEntityEnderChest {
 
 		PacketPlayOutBlockAction chestClosePacket = new PacketPlayOutBlockAction(this.position, Blocks.ENDER_CHEST, 1,
 				0);
-		environment.broadcastPacket(chestClosePacket);
+		environment.broadcast(chestClosePacket);
 	}
 
 	private void copyFields(TileEntityEnderChest source) {

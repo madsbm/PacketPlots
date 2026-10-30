@@ -11,7 +11,7 @@ import eu.okaeri.commands.bukkit.annotation.Permission;
 import eu.okaeri.commands.bukkit.response.BukkitResponse;
 import eu.okaeri.commands.bukkit.response.RawResponse;
 import eu.okaeri.commands.service.CommandService;
-import net.dashmc.plots.plot.Environment;
+import net.dashmc.plots.PacketPlots;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.plot.data.BlockBag;
@@ -24,9 +24,9 @@ public class PlotCommand implements CommandService {
 	@Executor(pattern = "virtualize *")
 	public BukkitResponse virtualize(@Context Player player, @Arg String value) {
 		if (value.equals("on"))
-			Environment.get(player).startVirtualization(player);
+			PacketPlots.getEnvironmentManager().startVirtualization(player);
 		else if (value.equals("off"))
-			Environment.get(player).stopVirtualization(player);
+			PacketPlots.getEnvironmentManager().stopVirtualization(player);
 		else
 			return RawResponse.of("Invalidt argument {arg}. Vælg on eller off.").with("arg", value);
 
@@ -53,7 +53,7 @@ public class PlotCommand implements CommandService {
 					.with("name", name);
 		}
 
-		IEnvironment other = Environment.get(playertoVisit);
+		IEnvironment other = PacketPlots.getEnvironmentManager().get(playertoVisit);
 		if (other == null)
 			return RawResponse.of("Spilleren {name}s plot er ikke indlæst, og du kan derfor ikke besøge det.")
 					.with("name", name);

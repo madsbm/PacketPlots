@@ -115,8 +115,8 @@ public class VirtualConnection {
 		if (other.equals(environment))
 			return;
 
-		environment.getConnections().remove(this);
-		other.getConnections().add(this);
+		environment.removeViewer(this);
+		other.addViewer(this);
 		visitLocally(other);
 	}
 
@@ -151,7 +151,7 @@ public class VirtualConnection {
 	}
 
 	public void refreshVirtualizedChunks() {
-		environment.getVirtualChunks().values().forEach((chunk) -> {
+		environment.getChunks().forEach((chunk) -> {
 			PacketPlayOutMapChunk chunkPacket = getRenderPacket(chunk);
 			player.playerConnection.sendPacket(chunkPacket);
 		});
@@ -180,7 +180,7 @@ public class VirtualConnection {
 		}
 
 		connections.remove(player);
-		environment.getConnections().remove(this);
+		environment.removeViewer(this);
 		this.injected = false;
 	}
 

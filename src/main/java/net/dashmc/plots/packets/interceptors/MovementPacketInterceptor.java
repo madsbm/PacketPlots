@@ -39,7 +39,7 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 		}
 
 		connection.setInsideACRegion(acDisabledRegion.includes((int) x, (int) y, (int) z));
-		if (!connection.getEnvironment().isValidLocation((int) x, (int) y, (int) z)) {
+		if (!connection.getEnvironment().contains((int) x, (int) y, (int) z)) {
 			connection.setInsideEnvironment(false);
 			return false;
 		} else if (!connection.isMoved()) {
@@ -167,7 +167,7 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 			float cYaw = (float) yaw.get(conn);
 			float cPitch = (float) pitch.get(conn);
 
-			return new Location(vConn.getEnvironment().getWorld(), x, y, z, cYaw, cPitch);
+			return new Location(vConn.getEnvironment().getRealWorld().getWorld(), x, y, z, cYaw, cPitch);
 		} catch (IllegalArgumentException | IllegalAccessException e) {
 			e.printStackTrace();
 			return null;

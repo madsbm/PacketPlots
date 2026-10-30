@@ -3,6 +3,7 @@ package net.dashmc.plots.plot.data.items;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.plot.data.VirtualItem;
+import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.Block;
@@ -25,14 +26,14 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 
 		Debug.log("interact with called on item door. is border place? " + isBorderPlace);
 
-		IBlockData ibd = isBorderPlace ? environment.getNmsWorld().getType(pos) : environment.getType(pos);
+		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block currBlock = ibd.getBlock();
 		if (!VirtualBlock.shouldRemainAt(currBlock, environment, pos)) {
 			pos = pos.shift(direction);
 		} else if (isBorderPlace)
 			return false;
 
-		if (!environment.canPlace(pos, direction, item, player))
+		if (!PlacementRules.canPlace(environment, pos, direction, item, player))
 			return false;
 
 		Block toPlace;
@@ -42,7 +43,7 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 			throw new RuntimeException(e);
 		}
 
-		if (!environment.isBuildable(toPlace, pos, false, direction, player, item))
+		if (!PlacementRules.isBuildable(environment, toPlace, pos, false, direction, player, item))
 			return false;
 
 		placeDoor(environment, pos, EnumDirection.fromAngle((double) player.yaw), toPlace);

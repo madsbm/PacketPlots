@@ -1,9 +1,11 @@
 package net.dashmc.plots.packets.interceptors;
 
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
+import net.dashmc.plots.plot.interaction.InteractionHandler;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.Material;
@@ -11,7 +13,9 @@ import net.minecraft.server.v1_8_R3.PacketPlayInBlockDig;
 import net.minecraft.server.v1_8_R3.PacketPlayInBlockDig.EnumPlayerDigType;
 import net.minecraft.server.v1_8_R3.TileEntity;
 
+@RequiredArgsConstructor
 public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlockDig> {
+	private final InteractionHandler interactions;
 
 	@Override
 	// https://github.com/Attano/Spigot-1.8/blob/9db48bc15e203179554b8d992ca6b0a528c8d300/net/minecraft/server/v1_8_R3/PlayerConnection.java#L544
@@ -21,7 +25,7 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 		EntityPlayer player = conn.getPlayer();
 
 		BlockPosition pos = packet.a();
-		if (!env.isValidLocation(pos))
+		if (!env.contains(pos))
 			return false;
 
 		if (!env.getOwnerUuid().equals(player.getUniqueID())) {
@@ -62,12 +66,12 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 				else if (pos.getY() >= 256)
 					return true;
 				else if (packet.c() == EnumPlayerDigType.START_DESTROY_BLOCK) {
-					env.getInteractManager().startDestroy(player, pos, packet.b());
+					interactions.startDestroy(env, player, pos, packet.b());
 					return true;
 				} else if (packet.c() == EnumPlayerDigType.STOP_DESTROY_BLOCK) {
-					env.getInteractManager().stopDestroy(player, pos);
+					interactions.stopDestroy(env, player, pos);
 				} else if (packet.c() == EnumPlayerDigType.ABORT_DESTROY_BLOCK) {
-					env.getInteractManager().abortDestroy(player);
+					interactions.abortDestroy(env, player);
 				}
 
 				if (env.getType(pos).getBlock().getMaterial() != Material.AIR) {
@@ -94,7 +98,7 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 		return PacketPlayInBlockDig.class;
 	}
 
-	public static void register() {
-		VirtualConnection.registerInterceptor(new BlockDigPacketInterceptor());
+	public static void register(InteractionHandler interactions) {
+		VirtualConnection.registerInterceptor(new BlockDigPacketInterceptor(interactions));
 	}
 }

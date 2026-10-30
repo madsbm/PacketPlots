@@ -24,7 +24,7 @@ public class VirtualBlockTrapDoor extends VirtualBlock<BlockTrapdoor> {
 		environment.setBlock(blockposition, iblockdata, 2);
 
 		int eventCode = iblockdata.get(BlockTrapdoor.OPEN).booleanValue() ? 1003 : 1006;
-		environment.broadcastPacket(new PacketPlayOutWorldEvent(eventCode, blockposition, 0, false));
+		environment.broadcast(new PacketPlayOutWorldEvent(eventCode, blockposition, 0, false));
 
 		return true;
 	}

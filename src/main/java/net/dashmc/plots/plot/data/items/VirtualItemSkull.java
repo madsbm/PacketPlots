@@ -7,6 +7,7 @@ import com.mojang.authlib.GameProfile;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.plot.data.VirtualItem;
+import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.BlockSkull;
@@ -30,7 +31,7 @@ public class VirtualItemSkull extends VirtualItem<ItemSkull> {
 		if (direction == EnumDirection.DOWN)
 			return false;
 
-		IBlockData ibd = isBorderPlace ? environment.getNmsWorld().getType(pos) : environment.getType(pos);
+		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block block = ibd.getBlock();
 		if (!VirtualBlock.shouldRemainAt(block, environment, pos)) {
 			if (!environment.getType(pos).getBlock().getMaterial().isBuildable() && !isBorderPlace)
@@ -40,7 +41,7 @@ public class VirtualItemSkull extends VirtualItem<ItemSkull> {
 		} else if (isBorderPlace)
 			return false;
 
-		if (!environment.canPlace(pos, direction, item, player))
+		if (!PlacementRules.canPlace(environment, pos, direction, item, player))
 			return false;
 		if (!environment.getType(pos).getBlock().getMaterial().isReplaceable())
 			return false;

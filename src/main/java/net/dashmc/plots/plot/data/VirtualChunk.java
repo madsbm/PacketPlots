@@ -52,7 +52,7 @@ public class VirtualChunk implements IDataHolder {
 	public VirtualChunk(IEnvironment environment, ChunkCoordIntPair coordPair) {
 		this.environment = environment;
 		this.coordPair = coordPair;
-		this.world = environment.getNmsWorld();
+		this.world = environment.getRealWorld();
 
 		WorldServer world = (WorldServer) this.world;
 		this.chunk = world.chunkProviderServer.getChunkAt(coordPair.x, coordPair.z);
@@ -76,7 +76,7 @@ public class VirtualChunk implements IDataHolder {
 
 	public VirtualChunk(IEnvironment environment, DataInputStream stream) throws IOException {
 		this.environment = environment;
-		this.world = environment.getNmsWorld();
+		this.world = environment.getRealWorld();
 		deserialize(stream);
 	}
 
@@ -97,7 +97,7 @@ public class VirtualChunk implements IDataHolder {
 		byte relZ = (byte) (pos.getZ() & 15);
 		byte yPos = (byte) (pos.getY() >> 4);
 
-		if (!environment.isValidLocation(pos)) {
+		if (!environment.contains(pos)) {
 			Bukkit.getLogger().warning(
 					"setBlock called on VirtualChunk even though the reference position was not in the virtualized chunk.");
 			return false;
@@ -181,7 +181,7 @@ public class VirtualChunk implements IDataHolder {
 	@Override
 	public void deserialize(DataInputStream stream) throws IOException {
 		IEnvironment environment = getEnvironment();
-		this.world = environment.getNmsWorld();
+		this.world = environment.getRealWorld();
 
 		this.coordPair = new ChunkCoordIntPair(stream.readInt(), stream.readInt());
 

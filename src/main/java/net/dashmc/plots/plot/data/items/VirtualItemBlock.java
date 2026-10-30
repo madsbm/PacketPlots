@@ -3,6 +3,7 @@ package net.dashmc.plots.plot.data.items;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.plot.data.VirtualItem;
+import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -19,7 +20,7 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 	@Override
 	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
 			EnumDirection direction, float cX, float cY, float cZ, boolean isBorderPlace) {
-		IBlockData ibd = isBorderPlace ? environment.getNmsWorld().getType(pos) : environment.getType(pos);
+		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block block = ibd.getBlock();
 
 		if (!VirtualBlock.shouldRemainAt(block, environment, pos))
@@ -34,10 +35,10 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 		if (item.count == 0)
 			return false;
 
-		if (!environment.canPlace(pos, direction, item, player))
+		if (!PlacementRules.canPlace(environment, pos, direction, item, player))
 			return false;
 
-		if (!environment.isBuildable(toPlace, pos, false, direction, player, item))
+		if (!PlacementRules.isBuildable(environment, toPlace, pos, false, direction, player, item))
 			return false;
 
 		int data = item.getItem().filterData(item.getData());

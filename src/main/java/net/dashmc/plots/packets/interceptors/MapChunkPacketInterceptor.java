@@ -28,7 +28,7 @@ public class MapChunkPacketInterceptor extends PacketInterceptor<PacketPlayOutMa
 
 			int hash = Utils.getChunkCoordHash(xCoord, zCoord);
 			if (MapChunkBulkPacketInterceptor.coordPairs.contains(hash)) {
-				VirtualChunk chunk = environment.getVirtualChunks().get(hash);
+				VirtualChunk chunk = environment.getChunk(xCoord, zCoord);
 				chunkMapField.set(packet, environment.getRenderPipeline().render(chunk));
 
 				Bukkit.getScheduler().runTask(PacketPlots.getInstance(), () -> {

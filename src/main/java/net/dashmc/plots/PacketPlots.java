@@ -26,8 +26,7 @@ import net.dashmc.plots.config.serializers.BlockPositionSerializer;
 import net.dashmc.plots.config.serializers.CuboidRegionSerializer;
 import net.dashmc.plots.listeners.ConnectionListener;
 import net.dashmc.plots.packets.PacketInterceptor;
-import net.dashmc.plots.plot.Environment;
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.EnvironmentManager;
 import net.dashmc.plots.utils.misc.Debug;
 
 public class PacketPlots extends JavaPlugin {
@@ -39,6 +38,7 @@ public class PacketPlots extends JavaPlugin {
 	private @Getter static Commands commands;
 	private @Getter static PacketPlots instance;
 	private @Getter static PlotConfig plotConfig;
+	private @Getter static EnvironmentManager environmentManager;
 
 	@Override
 	public void onEnable() {
@@ -61,7 +61,10 @@ public class PacketPlots extends JavaPlugin {
 		Debug.log("Found config file... virtualizing region " + plotConfig.getRegion() + " with chunks "
 				+ Arrays.toString(plotConfig.getRegion().getChunks()));
 
-		ConnectionListener.register();
+		environmentManager = new EnvironmentManager(new File(this.getDataFolder(), "data"), plotConfig,
+				getDescription().getVersion());
+
+		ConnectionListener.register(environmentManager);
 		PacketInterceptor.register();
 
 		commands = CommandsBukkit.of(this);
@@ -109,10 +112,7 @@ public class PacketPlots extends JavaPlugin {
 			e.printStackTrace();
 		}
 
-		for (IEnvironment env : Environment.getActive()) {
-			env.save();
-		}
-
+		environmentManager.saveAll();
 	}
 
 	@Override

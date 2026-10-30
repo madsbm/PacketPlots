@@ -1,32 +1,37 @@
 package net.dashmc.plots.plot;
 
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 
-import net.dashmc.plots.plot.CuboidEnvironment.InteractManager;
 import net.dashmc.plots.plot.data.BlockBag;
-import net.dashmc.plots.plot.data.VirtualChunk;
+import net.dashmc.plots.utils.CuboidRegion;
+import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityHuman;
+import net.minecraft.server.v1_8_R3.TileEntity;
 
 public interface IEnvironment extends IVirtualWorld, IRenderSource {
-
-	HashSet<VirtualConnection> getConnections();
-
-	HashMap<Integer, VirtualChunk> getVirtualChunks();
-
 	UUID getOwnerUuid();
 
 	default boolean isOwner(EntityHuman human) {
 		return getOwnerUuid().equals(human.getUniqueID());
 	}
 
-	InteractManager getInteractManager();
-
 	BlockBag getBlockBag();
 
+	void addViewer(VirtualConnection connection);
+
+	void removeViewer(VirtualConnection connection);
+
+	// only VirtualChunk uses these; the tile methods go with the duplicate tile list
+	CuboidRegion getRegion();
+
+	List<TileEntity> getTileEntities();
+
+	void setTileEntity(BlockPosition pos, TileEntity tile);
+
+	/**
+	 * Sends the environment's visitors back to their own environments. Use
+	 * {@link EnvironmentManager#unload}, which saves the environment first.
+	 */
 	void close();
-
-	void save();
-
 }

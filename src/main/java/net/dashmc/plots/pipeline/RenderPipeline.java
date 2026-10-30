@@ -43,7 +43,7 @@ public class RenderPipeline {
 	}
 
 	protected ChunkMap getChunkMap(VirtualChunk chunk, int mask, boolean includeBiome) {
-		boolean isOverworld = !chunk.getEnvironment().getNmsWorld().worldProvider.o();
+		boolean isOverworld = !chunk.getEnvironment().getRealWorld().worldProvider.o();
 
 		ChunkMap chunkMap = new ChunkMap();
 		List<Section> arraylist = Lists.newArrayList();

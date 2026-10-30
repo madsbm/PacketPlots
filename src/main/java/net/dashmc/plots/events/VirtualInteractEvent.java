@@ -47,7 +47,7 @@ public class VirtualInteractEvent extends Event implements Cancellable {
 			itemInHand = null;
 		this.itemInHand = itemInHand;
 		this.action = action;
-		this.location = Utils.convertPosToLoc(env.getWorld(), pos);
+		this.location = Utils.convertPosToLoc(env.getRealWorld(), pos);
 	}
 
 	public void setCancelled(boolean cancel) {

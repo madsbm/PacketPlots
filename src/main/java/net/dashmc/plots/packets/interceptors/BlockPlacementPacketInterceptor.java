@@ -4,10 +4,12 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.util.NumberConversions;
 
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
+import net.dashmc.plots.plot.interaction.InteractionHandler;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
@@ -20,7 +22,9 @@ import net.minecraft.server.v1_8_R3.Slot;
 
 // https://minecraft.wiki/w/Protocol?oldid=2772100#Player_Digging
 // https://github.com/Attano/Spigot-1.8/blob/9db48bc15e203179554b8d992ca6b0a528c8d300/net/minecraft/server/v1_8_R3/PlayerConnection.java#L638
+@RequiredArgsConstructor
 public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPlayInBlockPlace> {
+	private final InteractionHandler interactions;
 
 	@Override
 	public boolean intercept(PacketPlayInBlockPlace packet, VirtualConnection conn) {
@@ -30,8 +34,8 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 		BlockPosition pos = packet.a();
 
 		EnumDirection dir = EnumDirection.fromType1(packet.getFace());
-		boolean isBorderPlace = !env.isValidLocation(pos) && env.isValidLocation(pos.shift(dir));
-		if (!env.isValidLocation(pos) && !isBorderPlace)
+		boolean isBorderPlace = !env.contains(pos) && env.contains(pos.shift(dir));
+		if (!env.contains(pos) && !isBorderPlace)
 			return false;
 
 		if (player.dead)
@@ -63,8 +67,8 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 					+ player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D));
 
 			if (player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D) < 64D) {
-				always = env.getInteractManager().interact(player, env, inHand, pos, dir, packet.d(),
-						packet.e(), packet.f(), isBorderPlace);
+				always = interactions.interact(env, player, inHand, pos, dir, packet.d(), packet.e(), packet.f(),
+						isBorderPlace);
 			}
 
 			flag = true;
@@ -72,7 +76,7 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 
 		if (flag) {
 			if (isBorderPlace) {
-				player.playerConnection.sendPacket(new PacketPlayOutBlockChange(env.getNmsWorld(), pos));
+				player.playerConnection.sendPacket(new PacketPlayOutBlockChange(env.getRealWorld(), pos));
 			} else {
 				player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
 			}
@@ -108,7 +112,7 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 		return PacketPlayInBlockPlace.class;
 	}
 
-	public static void register() {
-		VirtualConnection.registerInterceptor(new BlockPlacementPacketInterceptor());
+	public static void register(InteractionHandler interactions) {
+		VirtualConnection.registerInterceptor(new BlockPlacementPacketInterceptor(interactions));
 	}
 }

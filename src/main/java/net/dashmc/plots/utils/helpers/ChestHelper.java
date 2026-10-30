@@ -93,7 +93,7 @@ public class ChestHelper {
 
 		TileEntityChest chest = (TileEntityChest) inventory;
 		BlockPosition pos = chest.getPosition();
-		if (!env.isValidLocation(pos))
+		if (!env.contains(pos))
 			return false;
 		return env.getType(pos).getBlock() instanceof BlockChest;
 	}
@@ -105,7 +105,7 @@ public class ChestHelper {
 
 		TileEntityChest chest = (TileEntityChest) inventory;
 		BlockPosition pos = chest.getPosition();
-		if (!env.isValidLocation(pos))
+		if (!env.contains(pos))
 			return false;
 		else if (human.isSpectator())
 			return true;
@@ -121,7 +121,7 @@ public class ChestHelper {
 
 		Block block = env.getType(chest.getPosition()).getBlock();
 		PacketPlayOutBlockAction chestClosePacket = new PacketPlayOutBlockAction(chest.getPosition(), block, 1, 0);
-		env.broadcastPacket(chestClosePacket);
+		env.broadcast(chestClosePacket);
 
 		return true;
 	}

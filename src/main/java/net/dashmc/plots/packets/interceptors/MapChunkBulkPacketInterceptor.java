@@ -42,9 +42,7 @@ public class MapChunkBulkPacketInterceptor extends PacketInterceptor<PacketPlayO
 			}
 
 			for (int i : indices) {
-				int hash = Utils.getChunkCoordHash(xCoords[i], zCoords[i]);
-
-				VirtualChunk chunk = env.getVirtualChunks().get(hash);
+				VirtualChunk chunk = env.getChunk(xCoords[i], zCoords[i]);
 
 				Bukkit.getScheduler().runTask(PacketPlots.getInstance(), () -> {
 					chunk.sendTiles(conn.getPlayer());

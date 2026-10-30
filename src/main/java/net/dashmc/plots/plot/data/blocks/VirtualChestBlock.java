@@ -45,7 +45,7 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 
 		if (itileinventory != null) {
 			PacketPlayOutBlockAction chestOpenPacket = new PacketPlayOutBlockAction(blockposition, block, 1, 1);
-			environment.broadcastPacket(chestOpenPacket);
+			environment.broadcast(chestOpenPacket);
 
 			entityhuman.openContainer(itileinventory);
 			if (block.b == 0) {

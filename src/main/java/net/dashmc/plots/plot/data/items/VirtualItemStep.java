@@ -2,6 +2,7 @@ package net.dashmc.plots.plot.data.items;
 
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.VirtualItem;
+import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.BlockStepAbstract;
@@ -23,7 +24,7 @@ public class VirtualItemStep extends VirtualItem<ItemStep> {
 			EnumDirection direction, float cX, float cY, float cZ, boolean isBorderPlace) {
 		if (item.count == 0)
 			return false;
-		else if (!environment.canPlace(pos, direction, item, player))
+		else if (!PlacementRules.canPlace(environment, pos, direction, item, player))
 			return false;
 
 		try {
