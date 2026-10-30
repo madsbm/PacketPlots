@@ -50,7 +50,7 @@ import net.minecraft.server.v1_8_R3.TileEntity;
  */
 public class CuboidEnvironment implements IEnvironment, IDataHolder {
 	private final HashSet<VirtualConnection> connections = new HashSet<>();
-	private HashMap<Integer, VirtualChunk> virtualChunks = new HashMap<>();
+	private HashMap<Long, VirtualChunk> virtualChunks = new HashMap<>();
 	private @Getter final List<TileEntity> tileEntities = Lists.newArrayList();
 	private World world;
 	private net.minecraft.server.v1_8_R3.World nmsWorld;
@@ -75,7 +75,7 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 			Debug.log(() -> "creating chunk @ " + coord.toString());
 			VirtualChunk chunk = new VirtualChunk(this, coord);
 			Debug.log(() -> "created chunk " + chunk);
-			virtualChunks.put(coord.hashCode(), chunk);
+			virtualChunks.put(Utils.getChunkKey(coord.x, coord.z), chunk);
 		}
 	}
 
@@ -125,7 +125,7 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 
 	@Override
 	public VirtualChunk getChunk(int chunkX, int chunkZ) {
-		return virtualChunks.get(Utils.getChunkCoordHash(chunkX, chunkZ));
+		return virtualChunks.get(Utils.getChunkKey(chunkX, chunkZ));
 	}
 
 	@Override
@@ -143,7 +143,7 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 		if (!contains(pos))
 			return Blocks.AIR.getBlockData();
 
-		VirtualChunk chunk = virtualChunks.get(Utils.getChunkCoordHash(pos));
+		VirtualChunk chunk = virtualChunks.get(Utils.getChunkKey(pos));
 		return chunk.getBlockData(pos);
 	}
 
@@ -152,7 +152,7 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 		if (!contains(pos))
 			return null;
 
-		TileEntity tileEntity = virtualChunks.get(Utils.getChunkCoordHash(pos)).getTileEntity(pos,
+		TileEntity tileEntity = virtualChunks.get(Utils.getChunkKey(pos)).getTileEntity(pos,
 				EnumTileEntityState.IMMEDIATE);
 		if (tileEntity == null) {
 			for (int i = 0; i < tileEntities.size(); i++) {
@@ -172,7 +172,7 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 		if (!this.contains(pos))
 			return false;
 
-		VirtualChunk chunk = virtualChunks.get(Utils.getChunkCoordHash(pos));
+		VirtualChunk chunk = virtualChunks.get(Utils.getChunkKey(pos));
 		boolean succeeded = chunk.setBlock(pos, blockData);
 		if (succeeded) {
 			// any blocks removed due to physics will become property of environment owner
@@ -225,7 +225,7 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 		int chunks = stream.readInt();
 		for (int i = 0; i < chunks; i++) {
 			VirtualChunk chunk = new VirtualChunk(this, stream);
-			virtualChunks.put(chunk.getCoordPair().hashCode(), chunk);
+			virtualChunks.put(Utils.getChunkKey(chunk.getCoordPair().x, chunk.getCoordPair().z), chunk);
 		}
 
 		Debug.log(() -> "Loaded chunks from save file: " + virtualChunks.size());
@@ -239,7 +239,7 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 	public void setTileEntity(BlockPosition blockPosition, TileEntity tileEntity) {
 		if (tileEntity != null && !tileEntity.x()) {
 			tileEntities.add(tileEntity);
-			virtualChunks.get(Utils.getChunkCoordHash(blockPosition)).setTileEntity(blockPosition, tileEntity);
+			virtualChunks.get(Utils.getChunkKey(blockPosition)).setTileEntity(blockPosition, tileEntity);
 		}
 	}
 

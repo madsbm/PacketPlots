@@ -20,7 +20,7 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunkBulk;
 
 // https://minecraft.wiki/w/Protocol?oldid=2772100#Map_Chunk_Bulk
 public class MapChunkBulkPacketInterceptor extends PacketInterceptor<PacketPlayOutMapChunkBulk> {
-	protected static final HashSet<Integer> coordPairs = new HashSet<>();
+	protected static final HashSet<Long> coordPairs = new HashSet<>();
 	private static final FieldAccess<int[]> xCoordField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "a",
 			int[].class);
 	private static final FieldAccess<int[]> zCoordField = new FieldAccess<>(PacketPlayOutMapChunkBulk.class, "b",
@@ -39,8 +39,8 @@ public class MapChunkBulkPacketInterceptor extends PacketInterceptor<PacketPlayO
 		ChunkMap[] chunkMaps = chunkMapField.get(packet);
 
 		for (int i = 0; i < xCoords.length; i++) {
-			int hash = Utils.getChunkCoordHash(xCoords[i], zCoords[i]);
-			if (coordPairs.contains(hash)) {
+			long key = Utils.getChunkKey(xCoords[i], zCoords[i]);
+			if (coordPairs.contains(key)) {
 				indices.add(i);
 			}
 		}
@@ -80,7 +80,7 @@ public class MapChunkBulkPacketInterceptor extends PacketInterceptor<PacketPlayO
 	static {
 		ChunkCoordIntPair[] pairs = PacketPlots.getPlotConfig().getRegion().getChunks();
 		for (ChunkCoordIntPair pair : pairs) {
-			coordPairs.add(pair.hashCode());
+			coordPairs.add(Utils.getChunkKey(pair.x, pair.z));
 		}
 	}
 }

@@ -1,29 +1,18 @@
 package net.dashmc.plots.plot.data;
 
-import java.util.HashMap;
-import java.util.function.BiFunction;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.blocks.VirtualBlockAir;
 import net.dashmc.plots.plot.data.blocks.VirtualBlockDoor;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockDoubleStep;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockGrass;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockLeaves1;
 import net.dashmc.plots.plot.data.blocks.VirtualBlockLeaves2;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockLog1;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockLog2;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockStep;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockStone;
 import net.dashmc.plots.plot.data.blocks.VirtualBlockTrapDoor;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockWood;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockWoodStep;
-import net.dashmc.plots.plot.data.blocks.VirtualCarpetBlock;
 import net.dashmc.plots.plot.data.blocks.VirtualChestBlock;
 import net.dashmc.plots.plot.data.blocks.VirtualEnderChestBlock;
 import net.dashmc.plots.plot.data.blocks.VirtualFenceGateBlock;
 import net.dashmc.plots.plot.data.blocks.VirtualSkullBlock;
-import net.dashmc.plots.plot.data.blocks.VirtualStainedGlassBlock;
-import net.dashmc.plots.plot.data.blocks.VirtualStainedGlassPaneBlock;
+import net.dashmc.plots.utils.helpers.ClassRegistry;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -35,8 +24,22 @@ import net.minecraft.server.v1_8_R3.Item;
 import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.TileEntity;
 
+/**
+ * How a block behaves in a virtual environment. The defaults do what vanilla
+ * does, so a block only needs a handler where it differs.
+ */
 public abstract class VirtualBlock<T extends Block> {
-	private static HashMap<Class<? extends Block>, VirtualBlock<? extends Block>> virtualBlocks = new HashMap<>();
+	private static final ClassRegistry<VirtualBlock<?>> virtualBlocks = new ClassRegistry<>();
+
+	/**
+	 * The handler of blocks without one of their own.
+	 */
+	private static final VirtualBlock<Block> DEFAULT = new VirtualBlock<Block>() {
+		@Override
+		public Class<Block> getClazz() {
+			return Block.class;
+		}
+	};
 
 	public boolean interact(T block, IEnvironment environment, BlockPosition blockposition,
 			IBlockData iblockdata, EntityHuman entityhuman, EnumDirection enumdirection, float f, float f1, float f2) {
@@ -66,10 +69,23 @@ public abstract class VirtualBlock<T extends Block> {
 			IBlockData newBlockData) {
 	}
 
+	/**
+	 * Puts the block in the bag as its own item. A block without one, such as a
+	 * double slab or a sign, gives what vanilla drops instead.
+	 */
 	public void onBlockHarvested(T block, IEnvironment environment, BlockPosition pos, IBlockData data,
 			BlockBag bag,
 			TileEntity tile) {
-		bag.add(new ItemStack(getItemType(block, data), 1, getDropData(data)));
+		Item item = getItemType(block, data);
+		if (item != null) {
+			bag.add(new ItemStack(item, 1, getDropData(data)));
+			return;
+		}
+
+		Random random = ThreadLocalRandom.current();
+		Item drop = block.getDropType(data, random, 0);
+		if (drop != null)
+			bag.add(new ItemStack(drop, block.getDropCount(0, random), block.getDropData(data)));
 	};
 
 	public Item getItemType(T block, IBlockData ibd) {
@@ -80,8 +96,12 @@ public abstract class VirtualBlock<T extends Block> {
 		return getDropData(env.getType(pos));
 	}
 
+	/**
+	 * @return the data of the block's item, which is the variant or color for
+	 *         blocks that have one
+	 */
 	public int getDropData(IBlockData data) {
-		return 0;
+		return data.getBlock().getDropData(data);
 	}
 
 	public AxisAlignedBB getCollisionBoundingBox(T block, IEnvironment env, BlockPosition pos, IBlockData state) {
@@ -111,152 +131,76 @@ public abstract class VirtualBlock<T extends Block> {
 	public abstract Class<T> getClazz();
 
 	public void register() {
-		virtualBlocks.put(getClazz(), this);
+		virtualBlocks.register(getClazz(), this);
 	}
 
-	public static final <T extends Block> void notify(Block block, IEnvironment env, BlockPosition pos,
-			BlockBag bag,
-			IBlockData newBlockData) {
-		getAndRun(block, (BiFunction<VirtualBlock<T>, T, Void>) (virtualBlock, actualBlock) -> {
-			if (virtualBlock == null || actualBlock == null)
-				return null;
-
-			virtualBlock.onRelatedUpdated(actualBlock, env, pos, bag, newBlockData);
-			return null;
-		});
-	}
-
-	public static final <T extends Block> AxisAlignedBB getBoundingBox(Block block, IEnvironment env,
-			BlockPosition pos, IBlockData state) {
-		return getAndRun(block, (BiFunction<VirtualBlock<T>, T, AxisAlignedBB>) (virtualBlock, actualBlock) -> {
-			if (virtualBlock == null || actualBlock == null)
-				return block.a((net.minecraft.server.v1_8_R3.World) null, pos, state);
-
-			return virtualBlock.getCollisionBoundingBox(actualBlock, env, pos, state);
-		});
-	}
-
-	public static final <T extends Block> boolean interact(IEnvironment environment,
-			BlockPosition blockposition,
-			IBlockData iblockdata,
-			EntityHuman entityhuman, EnumDirection enumdirection, float f, float f1, float f2) {
-		return getAndRun(iblockdata, (BiFunction<VirtualBlock<T>, T, Boolean>) (virtualBlock, block) -> {
-			if (virtualBlock == null || block == null)
-				return false;
-			return virtualBlock.interact(
-					block, environment, blockposition, iblockdata, entityhuman,
-					enumdirection, f, f1, f2);
-		});
-	}
-
-	public static final <T extends Block> void harvestBlock(Block block, IBlockData data,
-			IEnvironment environment,
-			BlockPosition pos, BlockBag bag, TileEntity tile) {
-		getAndRun(block, (BiFunction<VirtualBlock<T>, T, Void>) (virtualBlock, actualBlock) -> {
-			if (virtualBlock == null || block == null) {
-				bag.add(Item.getItemOf(block));
-				return null;
-			}
-			virtualBlock.onBlockHarvested(actualBlock, environment, pos, data, bag, tile);
-			return null;
-		});
-	}
-
-	public static final <T extends Block> boolean shouldRemainAt(Block block, IEnvironment env,
-			BlockPosition position) {
-		return getAndRun(block, (BiFunction<VirtualBlock<T>, T, Boolean>) (virtualBlock, actualBlock) -> {
-			if (virtualBlock == null || block == null)
-				return false;
-			return virtualBlock.shouldRemainAt(env, position);
-		});
-	}
-
-	public static final <T extends Block> boolean mayPlace(Block toPlace, IEnvironment environment,
-			BlockPosition pos, EnumDirection direction, ItemStack itemStack) {
-		return getAndRun(toPlace, (BiFunction<VirtualBlock<T>, T, Boolean>) (virtualBlock, block) -> {
-			if (virtualBlock == null || block == null)
-				return environment.getType(pos).getBlock().getMaterial().isReplaceable();
-			return virtualBlock.canPlace(block, environment, pos, direction, itemStack);
-		});
-	}
-
-	public static final <T extends Block> void postPlace(Block placedBlock, IEnvironment environment,
-			BlockPosition pos,
-			IBlockData blockData, EntityHuman entityHuman, ItemStack itemStack) {
-		getAndRun(placedBlock, (BiFunction<VirtualBlock<T>, T, Void>) (virtualBlock, block) -> {
-			if (virtualBlock == null || block == null)
-				return null;
-			virtualBlock.postPlace(block, environment, pos, blockData, (EntityLiving) entityHuman, itemStack);
-			return null;
-		});
-	}
-
-	public static final <T extends Block> void remove(IEnvironment environment, BlockPosition blockposition,
-			IBlockData iblockdata) {
-		getAndRun(iblockdata, (BiFunction<VirtualBlock<T>, T, Void>) (virtualBlock, block) -> {
-			if (virtualBlock == null || block == null)
-				return null;
-			virtualBlock.remove(block, environment, blockposition, iblockdata);
-			return null;
-		});
-	}
-
-	public static final <T extends Block> void onPlace(IEnvironment environment, BlockPosition blockposition,
-			IBlockData iblockdata) {
-		getAndRun(iblockdata, (BiFunction<VirtualBlock<T>, T, Void>) (virtualBlock, block) -> {
-			if (virtualBlock == null || block == null)
-				return null;
-			virtualBlock.onPlace(block, environment, blockposition, iblockdata);
-			return null;
-		});
-	}
-
-	private static final <T extends Block, R> R getAndRun(IBlockData blockData,
-			BiFunction<VirtualBlock<T>, T, R> callback) {
-		Block block = blockData.getBlock();
-		return getAndRun(block, callback);
-	}
-
+	/**
+	 * @return the handler of the block's class, or else of its closest superclass
+	 *         with one, or else the default
+	 */
 	@SuppressWarnings("unchecked")
-	private static final <T extends Block, R> R getAndRun(Block block,
-			BiFunction<VirtualBlock<T>, T, R> callback) {
-		if (block == null)
-			return callback.apply(null, null);
+	private static VirtualBlock<Block> handlerOf(Block block) {
+		// the handler is for the block's class or a superclass of it, so it takes the
+		// block
+		VirtualBlock<Block> handler = (VirtualBlock<Block>) virtualBlocks.get(block.getClass());
+		return handler != null ? handler : DEFAULT;
+	}
 
-		VirtualBlock<? extends Block> virtualBlock = virtualBlocks.get(block.getClass());
-		if (virtualBlock == null)
-			return callback.apply(null, null);
-		VirtualBlock<T> typedVirtualBlock = (VirtualBlock<T>) virtualBlock;
+	public static final void notify(Block block, IEnvironment env, BlockPosition pos, BlockBag bag,
+			IBlockData newBlockData) {
+		handlerOf(block).onRelatedUpdated(block, env, pos, bag, newBlockData);
+	}
 
-		Class<T> clazz = (Class<T>) virtualBlock.getClazz();
-		if (clazz == null)
-			return callback.apply(typedVirtualBlock, null);
+	public static final AxisAlignedBB getBoundingBox(Block block, IEnvironment env, BlockPosition pos,
+			IBlockData state) {
+		return handlerOf(block).getCollisionBoundingBox(block, env, pos, state);
+	}
 
-		T castBlock = clazz.cast(block);
+	public static final boolean interact(IEnvironment environment, BlockPosition blockposition,
+			IBlockData iblockdata, EntityHuman entityhuman, EnumDirection enumdirection, float f, float f1, float f2) {
+		Block block = iblockdata.getBlock();
+		return handlerOf(block).interact(block, environment, blockposition, iblockdata, entityhuman, enumdirection,
+				f, f1, f2);
+	}
 
-		return callback.apply(typedVirtualBlock, castBlock);
+	public static final void harvestBlock(Block block, IBlockData data, IEnvironment environment,
+			BlockPosition pos, BlockBag bag, TileEntity tile) {
+		handlerOf(block).onBlockHarvested(block, environment, pos, data, bag, tile);
+	}
+
+	public static final boolean shouldRemainAt(Block block, IEnvironment env, BlockPosition position) {
+		return handlerOf(block).shouldRemainAt(env, position);
+	}
+
+	public static final boolean mayPlace(Block toPlace, IEnvironment environment, BlockPosition pos,
+			EnumDirection direction, ItemStack itemStack) {
+		return handlerOf(toPlace).canPlace(toPlace, environment, pos, direction, itemStack);
+	}
+
+	public static final void postPlace(Block placedBlock, IEnvironment environment, BlockPosition pos,
+			IBlockData blockData, EntityHuman entityHuman, ItemStack itemStack) {
+		handlerOf(placedBlock).postPlace(placedBlock, environment, pos, blockData, (EntityLiving) entityHuman,
+				itemStack);
+	}
+
+	public static final void remove(IEnvironment environment, BlockPosition blockposition, IBlockData iblockdata) {
+		Block block = iblockdata.getBlock();
+		handlerOf(block).remove(block, environment, blockposition, iblockdata);
+	}
+
+	public static final void onPlace(IEnvironment environment, BlockPosition blockposition, IBlockData iblockdata) {
+		Block block = iblockdata.getBlock();
+		handlerOf(block).onPlace(block, environment, blockposition, iblockdata);
 	}
 
 	static {
 		new VirtualBlockAir().register();
 		new VirtualChestBlock().register();
-		new VirtualCarpetBlock().register();
 		new VirtualBlockDoor().register();
 		new VirtualEnderChestBlock().register();
 		new VirtualFenceGateBlock().register();
-		new VirtualStainedGlassBlock().register();
-		new VirtualStainedGlassPaneBlock().register();
 		new VirtualSkullBlock().register();
-		new VirtualBlockLeaves1().register();
 		new VirtualBlockLeaves2().register();
-		new VirtualBlockLog1().register();
-		new VirtualBlockLog2().register();
-		new VirtualBlockWood().register();
-		new VirtualBlockStone().register();
-		new VirtualBlockWoodStep().register();
-		new VirtualBlockStep().register();
-		new VirtualBlockDoubleStep().register();
-		new VirtualBlockGrass().register();
 		new VirtualBlockTrapDoor().register();
 	}
 

@@ -17,12 +17,8 @@ import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.PacketPlayInFlying;
 import net.minecraft.server.v1_8_R3.PacketPlayOutPosition;
 import net.minecraft.server.v1_8_R3.PlayerConnection;
-import net.minecraft.server.v1_8_R3.PacketPlayInFlying.PacketPlayInLook;
-import net.minecraft.server.v1_8_R3.PacketPlayInFlying.PacketPlayInPosition;
-import net.minecraft.server.v1_8_R3.PacketPlayInFlying.PacketPlayInPositionLook;
 
 public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFlying> {
-	protected static MovementPacketInterceptor INSTANCE;
 	private static CuboidRegion acDisabledRegion = PacketPlots.getPlotConfig().getDefaultedACRegion();
 
 	@Override
@@ -145,48 +141,10 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 		return PacketPlayInFlying.class;
 	}
 
+	// also gets the look, position and position-look packets, which subclass
+	// PacketPlayInFlying
 	public static void register() {
-		INSTANCE = new MovementPacketInterceptor();
-		InterceptorRegistry.register(INSTANCE);
-		InterceptorRegistry.register(new LookPacketInterceptor());
-		InterceptorRegistry.register(new PositionPacketInterceptor());
-		InterceptorRegistry.register(new PositionLookPacketInterceptor());
-	}
-
-	public static class LookPacketInterceptor extends PacketInterceptor<PacketPlayInLook> {
-		@Override
-		public boolean intercept(PacketPlayInLook packet, VirtualConnection connection) {
-			return INSTANCE.intercept(packet, connection);
-		}
-
-		@Override
-		public Class<PacketPlayInLook> getClazz() {
-			return PacketPlayInLook.class;
-		}
-	}
-
-	public static class PositionPacketInterceptor extends PacketInterceptor<PacketPlayInPosition> {
-		@Override
-		public boolean intercept(PacketPlayInPosition packet, VirtualConnection connection) {
-			return INSTANCE.intercept(packet, connection);
-		}
-
-		@Override
-		public Class<PacketPlayInPosition> getClazz() {
-			return PacketPlayInPosition.class;
-		}
-	}
-
-	public static class PositionLookPacketInterceptor extends PacketInterceptor<PacketPlayInPositionLook> {
-		@Override
-		public boolean intercept(PacketPlayInPositionLook packet, VirtualConnection connection) {
-			return INSTANCE.intercept(packet, connection);
-		}
-
-		@Override
-		public Class<PacketPlayInPositionLook> getClazz() {
-			return PacketPlayInPositionLook.class;
-		}
+		InterceptorRegistry.register(new MovementPacketInterceptor());
 	}
 
 }

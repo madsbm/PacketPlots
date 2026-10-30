@@ -29,8 +29,8 @@ public class MapChunkPacketInterceptor extends PacketInterceptor<PacketPlayOutMa
 		int xCoord = xCoordField.get(packet);
 		int zCoord = zCoordField.get(packet);
 
-		int hash = Utils.getChunkCoordHash(xCoord, zCoord);
-		if (!MapChunkBulkPacketInterceptor.coordPairs.contains(hash))
+		long key = Utils.getChunkKey(xCoord, zCoord);
+		if (!MapChunkBulkPacketInterceptor.coordPairs.contains(key))
 			return false;
 
 		// null if the environment closed or changed while the packet was on its way

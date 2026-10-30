@@ -68,7 +68,7 @@ public class VirtualItemStep extends VirtualItem<ItemStep> {
 			}
 		}
 
-		return VirtualItem.getVirtualItems().get(ItemBlock.class).interactWith(item, player, environment, pos,
+		return VirtualItem.getHandler(ItemBlock.class).interactWith(item, player, environment, pos,
 				direction, cX, cY, cZ, isBorderPlace);
 	}
 

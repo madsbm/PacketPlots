@@ -7,6 +7,7 @@ import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
 
 import net.dashmc.plots.utils.helpers.MethodWrapper;
 import net.minecraft.server.v1_8_R3.BlockPosition;
+import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
 import net.minecraft.server.v1_8_R3.Packet;
 import net.minecraft.server.v1_8_R3.PlayerChunkMap;
 import net.minecraft.server.v1_8_R3.World;
@@ -14,14 +15,17 @@ import net.minecraft.server.v1_8_R3.WorldServer;
 
 public class Utils {
 	// chunk utils
-	public static int getChunkCoordHash(int x, int z) {
-		int xHash = 1664525 * x + 1013904223;
-		int zHash = 1664525 * (z ^ -559038737) + 1013904223;
-		return xHash ^ zHash;
+
+	/**
+	 * @return a key only this chunk has, unlike ChunkCoordIntPair#hashCode, which
+	 *         thousands of chunks in a world share
+	 */
+	public static long getChunkKey(int chunkX, int chunkZ) {
+		return ChunkCoordIntPair.a(chunkX, chunkZ);
 	}
 
-	public static int getChunkCoordHash(BlockPosition pos) {
-		return getChunkCoordHash(pos.getX() >> 4, pos.getZ() >> 4);
+	public static long getChunkKey(BlockPosition pos) {
+		return getChunkKey(pos.getX() >> 4, pos.getZ() >> 4);
 	}
 
 	// coord utils
