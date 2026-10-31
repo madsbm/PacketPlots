@@ -1,13 +1,7 @@
 package net.dashmc.plots.player;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-
-import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
-import org.bukkit.entity.Player;
-
-import net.dashmc.plots.plot.EnvironmentManager;
 import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -17,6 +11,11 @@ import net.minecraft.server.v1_8_R3.MinecraftServer;
 import net.minecraft.server.v1_8_R3.PacketPlayOutBlockBreakAnimation;
 import net.minecraft.server.v1_8_R3.PlayerInteractManager;
 
+/**
+ * A PlayerInteractManager that animates the player digging blocks in the
+ * environment their connection shows them. Injected while the connection is
+ * open.
+ */
 public class VirtualPlayerInteractManager extends PlayerInteractManager {
 	// final, but setAccessible is enough to write a final instance field
 	private static final FieldAccess<PlayerInteractManager> playerInteractManagerField = new FieldAccess<>(
@@ -33,52 +32,34 @@ public class VirtualPlayerInteractManager extends PlayerInteractManager {
 	private static final FieldAccess<Integer> force = new FieldAccess<>(PlayerInteractManager.class, "k",
 			int.class);
 
-	private EntityPlayer player;
-	private EnvironmentManager environments;
+	private final EntityPlayer player;
+	private final VirtualConnection connection;
 
-	public static VirtualPlayerInteractManager inject(Player player, EnvironmentManager environments) {
-		return inject(((CraftPlayer) player).getHandle(), environments);
-	}
-
-	public static VirtualPlayerInteractManager inject(EntityPlayer player, EnvironmentManager environments) {
-		VirtualPlayerInteractManager manager = new VirtualPlayerInteractManager(player, environments);
-		playerInteractManagerField.set(player, manager);
+	public static VirtualPlayerInteractManager inject(VirtualConnection connection) {
+		VirtualPlayerInteractManager manager = new VirtualPlayerInteractManager(connection);
+		playerInteractManagerField.set(connection.getPlayer(), manager);
 		return manager;
 	}
 
 	/**
 	 * Gives the player a vanilla PlayerInteractManager again, with the same state.
 	 */
-	public static void uninject(Player player) {
-		EntityPlayer handle = ((CraftPlayer) player).getHandle();
+	public static void uninject(EntityPlayer handle) {
 		if (!(handle.playerInteractManager instanceof VirtualPlayerInteractManager))
 			return;
 
 		PlayerInteractManager vanilla = new PlayerInteractManager(handle.getWorld());
-		copyFields(handle.playerInteractManager, vanilla);
+		FieldAccess.copyFields(PlayerInteractManager.class, handle.playerInteractManager, vanilla);
 		playerInteractManagerField.set(handle, vanilla);
 	}
 
-	/**
-	 * Copies the fields PlayerInteractManager declares. Fields of subclasses are
-	 * left out, so a manager left behind by a reload, whose class is from the old
-	 * plugin, can be copied from too.
-	 */
-	private static void copyFields(PlayerInteractManager source, PlayerInteractManager target) {
-		for (Field field : PlayerInteractManager.class.getDeclaredFields()) {
-			if (Modifier.isStatic(field.getModifiers()))
-				continue;
-
-			FieldAccess<Object> access = new FieldAccess<>(field, Object.class);
-			access.set(target, access.get(source));
-		}
-	}
-
-	private VirtualPlayerInteractManager(EntityPlayer player, EnvironmentManager environments) {
-		super(player.getWorld());
-		copyFields(player.playerInteractManager, this);
-		this.player = player;
-		this.environments = environments;
+	private VirtualPlayerInteractManager(VirtualConnection connection) {
+		super(connection.getPlayer().getWorld());
+		// only PlayerInteractManager's fields, so a manager left behind by a reload,
+		// whose class is from the old plugin, can be copied from too
+		FieldAccess.copyFields(PlayerInteractManager.class, connection.getPlayer().playerInteractManager, this);
+		this.player = connection.getPlayer();
+		this.connection = connection;
 	}
 
 	// called every tick
@@ -90,8 +71,8 @@ public class VirtualPlayerInteractManager extends PlayerInteractManager {
 		}
 
 		BlockPosition pos = getDestroyPosition();
-		IEnvironment env = environments.get(player);
-		if (env == null || !env.contains(pos)) {
+		IEnvironment env = connection.getEnvironment();
+		if (!env.contains(pos)) {
 			super.a();
 			return;
 		}

@@ -5,7 +5,6 @@ import java.util.UUID;
 import com.mojang.authlib.GameProfile;
 
 import net.dashmc.plots.plot.IEnvironment;
-import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.minecraft.server.v1_8_R3.Block;
@@ -33,7 +32,7 @@ public class VirtualItemSkull extends VirtualItem<ItemSkull> {
 
 		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block block = ibd.getBlock();
-		if (!VirtualBlock.shouldRemainAt(block, environment, pos)) {
+		if (!environment.getBlockHandlers().shouldRemainAt(block, environment, pos)) {
 			if (!environment.getType(pos).getBlock().getMaterial().isBuildable() && !isBorderPlace)
 				return false;
 
@@ -76,11 +75,6 @@ public class VirtualItemSkull extends VirtualItem<ItemSkull> {
 
 		skull.setRotation(i);
 		return true;
-	}
-
-	@Override
-	public Class<ItemSkull> getClazz() {
-		return ItemSkull.class;
 	}
 
 }

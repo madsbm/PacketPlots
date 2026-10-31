@@ -12,9 +12,4 @@ public class VirtualBlockAir extends VirtualBlock<BlockAir> {
 		return true;
 	}
 
-	@Override
-	public Class<BlockAir> getClazz() {
-		return BlockAir.class;
-	}
-
 }

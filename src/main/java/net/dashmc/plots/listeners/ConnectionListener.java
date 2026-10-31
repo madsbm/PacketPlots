@@ -2,8 +2,8 @@ package net.dashmc.plots.listeners;
 
 import java.io.IOException;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -17,6 +17,7 @@ import net.dashmc.plots.plot.EnvironmentManager;
 @RequiredArgsConstructor
 public class ConnectionListener implements Listener {
 	private final EnvironmentManager environments;
+	private final Logger logger;
 
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
@@ -36,13 +37,13 @@ public class ConnectionListener implements Listener {
 		try {
 			environments.load(player);
 		} catch (IOException e) {
-			Bukkit.getLogger().log(Level.SEVERE,
+			logger.log(Level.SEVERE,
 					"A severe error occured whilst loading the PacketPlot of " + player.getUniqueId(), e);
 		}
 	}
 
 	public static ConnectionListener register(Plugin plugin, EnvironmentManager environments) {
-		ConnectionListener listener = new ConnectionListener(environments);
+		ConnectionListener listener = new ConnectionListener(environments, plugin.getLogger());
 		plugin.getServer().getPluginManager().registerEvents(listener, plugin);
 		return listener;
 	}

@@ -1,7 +1,6 @@
 package net.dashmc.plots.packets.interceptors;
 
 import lombok.RequiredArgsConstructor;
-import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.plot.IEnvironment;
@@ -12,7 +11,6 @@ import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.Material;
 import net.minecraft.server.v1_8_R3.PacketPlayInBlockDig;
 import net.minecraft.server.v1_8_R3.PacketPlayInBlockDig.EnumPlayerDigType;
-import net.minecraft.server.v1_8_R3.TileEntity;
 
 @RequiredArgsConstructor
 public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlockDig> {
@@ -30,11 +28,7 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 			return false;
 
 		if (!env.getOwnerUuid().equals(player.getUniqueID())) {
-			player.playerConnection
-					.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
-			TileEntity tile = env.getTileEntity(pos);
-			if (tile != null)
-				player.playerConnection.sendPacket(tile.getUpdatePacket());
+			VirtualBlockChangePacket.resync(player, env, pos);
 			return true;
 		}
 
@@ -67,16 +61,16 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 				else if (pos.getY() >= 256)
 					return true;
 				else if (packet.c() == EnumPlayerDigType.START_DESTROY_BLOCK) {
-					interactions.startDestroy(env, player, pos, packet.b());
+					interactions.startDestroy(conn, pos, packet.b());
 					return true;
 				} else if (packet.c() == EnumPlayerDigType.STOP_DESTROY_BLOCK) {
-					interactions.stopDestroy(env, player, pos);
+					interactions.stopDestroy(conn, pos);
 				} else if (packet.c() == EnumPlayerDigType.ABORT_DESTROY_BLOCK) {
-					interactions.abortDestroy(env, player);
+					interactions.abortDestroy(conn);
 				}
 
 				if (env.getType(pos).getBlock().getMaterial() != Material.AIR) {
-					player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
+					VirtualBlockChangePacket.resync(player, env, pos);
 				}
 
 				break;
@@ -87,12 +81,4 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 		return true;
 	}
 
-	@Override
-	public Class<PacketPlayInBlockDig> getClazz() {
-		return PacketPlayInBlockDig.class;
-	}
-
-	public static void register(InteractionHandler interactions) {
-		InterceptorRegistry.register(new BlockDigPacketInterceptor(interactions));
-	}
 }

@@ -1,21 +1,27 @@
 package net.dashmc.plots.plot.interaction;
 
 import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.craftbukkit.v1_8_R3.entity.CraftHumanEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.Action;
 
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.events.VirtualBlockBreakEvent;
 import net.dashmc.plots.events.VirtualBlockDamageEvent;
+import net.dashmc.plots.events.VirtualBlockPlaceEvent;
 import net.dashmc.plots.events.VirtualInteractEvent;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.player.VirtualPlayerInteractManager;
 import net.dashmc.plots.plot.IEnvironment;
-import net.dashmc.plots.plot.data.VirtualBlock;
+import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.plot.data.VirtualItem;
-import net.dashmc.plots.utils.misc.Debug;
+import net.dashmc.plots.plot.data.VirtualItemRegistry;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockCommand;
+import net.minecraft.server.v1_8_R3.BlockContainer;
 import net.minecraft.server.v1_8_R3.BlockDoor;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
@@ -23,6 +29,7 @@ import net.minecraft.server.v1_8_R3.EntityHuman;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.EnumDirection;
 import net.minecraft.server.v1_8_R3.IBlockData;
+import net.minecraft.server.v1_8_R3.IContainer;
 import net.minecraft.server.v1_8_R3.IInventory;
 import net.minecraft.server.v1_8_R3.ITileInventory;
 import net.minecraft.server.v1_8_R3.ItemStack;
@@ -39,7 +46,9 @@ import net.minecraft.server.v1_8_R3.WorldSettings.EnumGamemode;
  * Players using, digging and breaking blocks in a virtual environment. A port
  * of PlayerInteractManager.
  */
+@RequiredArgsConstructor
 public class InteractionHandler {
+	private final VirtualItemRegistry items;
 
 	public boolean interact(IEnvironment env, EntityHuman human, ItemStack item, BlockPosition pos,
 			EnumDirection dir, float cX, float cY, float cZ, boolean isBorderPlace) {
@@ -52,8 +61,8 @@ public class InteractionHandler {
 
 		boolean result = false;
 
-		Debug.log(() -> "Interact IBD:" + blockData.getBlock().toString());
-		Debug.log(() -> "Block is not air?: " + (blockData.getBlock() != Blocks.AIR));
+		env.getDebug().log(() -> "Interact IBD:" + blockData.getBlock().toString());
+		env.getDebug().log(() -> "Block is not air?: " + (blockData.getBlock() != Blocks.AIR));
 
 		if (blockData.getBlock() != Blocks.AIR) {
 			boolean cancelledBlock = false;
@@ -82,18 +91,18 @@ public class InteractionHandler {
 			} else if (gameMode == GameMode.SPECTATOR) {
 				// TODO: implement
 			} else if (!human.isSneaking() || item == null) {
-				result = VirtualBlock.interact(env, pos, blockData, human, dir, cX, cY, cZ);
+				result = env.getBlockHandlers().interact(env, pos, blockData, human, dir, cX, cY, cZ);
 			}
 
-			Debug.log(() -> "Item is: " + item);
+			env.getDebug().log(() -> "Item is: " + item);
 			// not lazy, as result changes below
-			Debug.log("Result is: " + result);
+			env.getDebug().log("Result is: " + result);
 
 			if (item != null && !result) {
 				int data = item.getData();
 				int count = item.count;
 
-				result = VirtualItem.placeItem(item, human, env, pos, dir, cX, cY, cZ, isBorderPlace);
+				result = placeItem(item, human, env, pos, dir, cX, cY, cZ, isBorderPlace);
 
 				if (gameMode == GameMode.CREATIVE) {
 					item.setData(data);
@@ -105,37 +114,92 @@ public class InteractionHandler {
 		return result;
 	}
 
+	/**
+	 * Places the held item with its handler, calling a VirtualBlockPlaceEvent for
+	 * what it placed, like ItemStack#placeItem.
+	 */
+	private boolean placeItem(ItemStack itemStack, EntityHuman entityhuman, IEnvironment env,
+			BlockPosition clicked, EnumDirection dir, float cX, float cY, float cZ, boolean isBorderPlace) {
+		CraftHumanEntity player = entityhuman.getBukkitEntity();
+		VirtualItem<?> virtualItem = items.getHandler(itemStack.getItem().getClass());
+
+		int data = itemStack.getData();
+		int count = itemStack.count;
+		BlockPosition placedAt = clicked.shift(dir);
+		Location bukkitPlacedAt = Utils.convertPosToLoc(env.getRealWorld(), clicked);
+
+		IBlockData prevBlockData = env.getType(placedAt);
+		boolean flag = virtualItem.interactWith(itemStack, entityhuman, env, clicked, dir, cX, cY, cZ,
+				isBorderPlace);
+		env.getDebug().log(() -> "Interact with flag: " + flag);
+
+		int newData = itemStack.getData();
+		int newCount = itemStack.count;
+		itemStack.count = count;
+		itemStack.setData(data);
+
+		if (flag) {
+			IBlockData newBlockData = env.getType(placedAt);
+
+			@SuppressWarnings("deprecation")
+			org.bukkit.Material mat = org.bukkit.Material.getMaterial(Block.getId(newBlockData.getBlock()));
+
+			VirtualBlockPlaceEvent ev = new VirtualBlockPlaceEvent((Player) player, bukkitPlacedAt, mat, env);
+			env.getEvents().call(ev);
+
+			if (ev.isCancelled()) {
+				env.setBlock(placedAt, prevBlockData, 3);
+				return false;
+			} else {
+				if (itemStack.count == count && itemStack.getData() == data) {
+					itemStack.setData(newData);
+					itemStack.count = newCount;
+				}
+
+				if (!(newBlockData.getBlock() instanceof BlockContainer)) {
+					env.getBlockHandlers().onPlace(env, placedAt, newBlockData);
+				}
+
+				if (newBlockData.getBlock() instanceof IContainer)
+					env.broadcastTile(env.getTileEntity(placedAt));
+
+			}
+		}
+
+		return flag;
+	}
+
 	private void handleGateMismatch(IEnvironment env, IBlockData ibd, EntityHuman entity, BlockPosition pos) {
 		EntityPlayer player = (EntityPlayer) entity;
 
 		if (ibd.getBlock() instanceof BlockDoor) {
 			boolean bottom = ibd.get(BlockDoor.HALF) == BlockDoor.EnumDoorHalf.LOWER;
 
-			player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
-			player.playerConnection
-					.sendPacket(new VirtualBlockChangePacket(env, bottom ? pos.up() : pos.down()).getPacket());
+			VirtualBlockChangePacket.resync(player, env, pos);
+			VirtualBlockChangePacket.resync(player, env, bottom ? pos.up() : pos.down());
 		} else if (ibd.getBlock() == Blocks.TRAPDOOR) {
-			player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
+			VirtualBlockChangePacket.resync(player, env, pos);
 		}
 	}
 
 	// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerInteractManager.java#L105
-	public void startDestroy(IEnvironment env, EntityPlayer player, BlockPosition pos, EnumDirection dir) {
+	public void startDestroy(VirtualConnection conn, BlockPosition pos, EnumDirection dir) {
+		IEnvironment env = conn.getEnvironment();
+		EntityPlayer player = conn.getPlayer();
+		VirtualPlayerInteractManager interactManager = conn.getInteractManager();
+
 		VirtualInteractEvent event = new VirtualInteractEvent(player, Action.LEFT_CLICK_BLOCK, pos, dir,
 				player.inventory.getItemInHand(), false, env);
 		env.getEvents().call(event);
 
-		Debug.log(() -> "startDestroy called, is interact event cancelled? " + event.isCancelled());
+		env.getDebug().log(() -> "startDestroy called, is interact event cancelled? " + event.isCancelled());
 
 		if (event.isCancelled()) {
-			player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
-			TileEntity tile = env.getTileEntity(pos);
-			if (tile != null)
-				player.playerConnection.sendPacket(tile.getUpdatePacket());
+			VirtualBlockChangePacket.resync(player, env, pos);
 			return;
 		}
 
-		Debug.log(() -> "Is player creative?" + player.playerInteractManager.isCreative());
+		env.getDebug().log(() -> "Is player creative?" + player.playerInteractManager.isCreative());
 
 		if (player.playerInteractManager.isCreative()) {
 			breakBlock(env, player, pos);
@@ -144,23 +208,12 @@ public class InteractionHandler {
 
 		Block block = env.getType(pos).getBlock();
 
-		Debug.log(() -> "Is survival or adventure mode?" + player.playerInteractManager.c());
+		env.getDebug().log(() -> "Is survival or adventure mode?" + player.playerInteractManager.c());
 
-		if (player.playerInteractManager.c()) {
-			if (player.playerInteractManager.getGameMode() == EnumGamemode.SPECTATOR)
-				return;
+		if (!mayBreak(player, block))
+			return;
 
-			if (!player.cn()) {
-				ItemStack item = player.bZ();
-				if (item == null)
-					return;
-				if (!item.c(block))
-					return;
-			}
-		}
-
-		VirtualPlayerInteractManager playerInteractManager = (VirtualPlayerInteractManager) player.playerInteractManager;
-		playerInteractManager.setLastDigTick(playerInteractManager.getCurrentTick());
+		interactManager.setLastDigTick(interactManager.getCurrentTick());
 
 		float f = 1f;
 
@@ -173,7 +226,7 @@ public class InteractionHandler {
 
 		if (event.getUseItemInHand() == Event.Result.DENY) {
 			if (f > 1.0f)
-				player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
+				VirtualBlockChangePacket.resync(player, env, pos);
 
 			return;
 		}
@@ -185,7 +238,7 @@ public class InteractionHandler {
 		env.getEvents().call(blockEvent);
 
 		if (blockEvent.isCancelled()) {
-			player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
+			VirtualBlockChangePacket.resync(player, env, pos);
 			return;
 		}
 
@@ -196,8 +249,7 @@ public class InteractionHandler {
 
 			breakBlock(env, player, pos);
 		} else { // https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerInteractManager.java#L190
-			Debug.log(() -> "Setting destroy-fields, pos " + pos);
-			VirtualPlayerInteractManager interactManager = (VirtualPlayerInteractManager) player.playerInteractManager;
+			env.getDebug().log(() -> "Setting destroy-fields, pos " + pos);
 
 			interactManager.setIsDestroying(true);
 			interactManager.setDestroyPosition(pos);
@@ -210,10 +262,12 @@ public class InteractionHandler {
 	}
 
 	// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerInteractManager.java#L203
-	public void stopDestroy(IEnvironment env, EntityPlayer player, BlockPosition pos) {
-		VirtualPlayerInteractManager interactManager = (VirtualPlayerInteractManager) player.playerInteractManager;
+	public void stopDestroy(VirtualConnection conn, BlockPosition pos) {
+		IEnvironment env = conn.getEnvironment();
+		EntityPlayer player = conn.getPlayer();
+		VirtualPlayerInteractManager interactManager = conn.getInteractManager();
 
-		Debug.log(() -> "stop destroy at pos: " + pos.toString() + ", destroy pos: "
+		env.getDebug().log(() -> "stop destroy at pos: " + pos.toString() + ", destroy pos: "
 				+ interactManager.getDestroyPosition());
 		if (pos.equals(interactManager.getDestroyPosition())) {
 			interactManager.setCurrentTick(MinecraftServer.currentTick);
@@ -232,13 +286,15 @@ public class InteractionHandler {
 				}
 			}
 		} else {
-			player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
+			VirtualBlockChangePacket.resync(player, env, pos);
 		}
 	}
 
 	// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerInteractManager.java#L231
-	public void abortDestroy(IEnvironment env, EntityPlayer player) {
-		VirtualPlayerInteractManager interactManager = (VirtualPlayerInteractManager) player.playerInteractManager;
+	public void abortDestroy(VirtualConnection conn) {
+		IEnvironment env = conn.getEnvironment();
+		EntityPlayer player = conn.getPlayer();
+		VirtualPlayerInteractManager interactManager = conn.getInteractManager();
 		interactManager.setIsDestroying(false);
 
 		BlockPosition pos = interactManager.getDestroyPosition();
@@ -266,17 +322,13 @@ public class InteractionHandler {
 		env.getEvents().call(ev);
 		TileEntity tile = env.getTileEntity(pos);
 
-		Debug.log(() -> "Is block break event cancelled? " + ev.isCancelled());
+		env.getDebug().log(() -> "Is block break event cancelled? " + ev.isCancelled());
 
 		if (ev.isCancelled()) {
 			if (isSword)
 				return false;
 
-			player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
-
-			if (tile != null)
-				player.playerConnection.sendPacket(tile.getUpdatePacket());
-
+			VirtualBlockChangePacket.resync(player, env, pos);
 			return false;
 		}
 
@@ -284,29 +336,20 @@ public class InteractionHandler {
 			return false;
 
 		if (nmsBlock == Blocks.SKULL && !player.playerInteractManager.isCreative()) {
-			VirtualBlock.harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
+			env.getBlockHandlers().harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
 
 			return env.setBlock(pos, Blocks.AIR.getBlockData(), 3);
 		}
 
-		if (player.playerInteractManager.c()) {
-			if (player.playerInteractManager.getGameMode() == EnumGamemode.SPECTATOR)
-				return false;
-			if (!player.cn()) {
-				ItemStack item = player.bZ();
-				if (item == null)
-					return false;
-				if (!item.c(nmsBlock))
-					return false;
-			}
-		}
+		if (!mayBreak(player, nmsBlock))
+			return false;
 
 		env.broadcast(new PacketPlayOutWorldEvent(2001, pos, Block.getCombinedId(nmsData), false));
 
 		boolean couldSet = env.setBlock(pos, Blocks.AIR.getBlockData(), 3);
 
 		if (player.playerInteractManager.isCreative())
-			player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
+			VirtualBlockChangePacket.resync(player, env, pos);
 		else {
 			ItemStack held = player.bZ();
 			boolean flag = player.b(nmsBlock);
@@ -319,10 +362,27 @@ public class InteractionHandler {
 
 			if (flag && couldSet) {
 				// nmsBlock.a(nmsWorld, player, pos, nmsData, tile);
-				VirtualBlock.harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
+				env.getBlockHandlers().harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
 			}
 		}
 
 		return couldSet;
+	}
+
+	/**
+	 * @return whether the player's game mode lets them break the block: a spectator
+	 *         can't, and in adventure mode they need an item that can break it,
+	 *         unless they may build
+	 */
+	private static boolean mayBreak(EntityPlayer player, Block block) {
+		if (!player.playerInteractManager.c())
+			return true;
+		if (player.playerInteractManager.getGameMode() == EnumGamemode.SPECTATOR)
+			return false;
+		if (player.cn())
+			return true;
+
+		ItemStack item = player.bZ();
+		return item != null && item.c(block);
 	}
 }

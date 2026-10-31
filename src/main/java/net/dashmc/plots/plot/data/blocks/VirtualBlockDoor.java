@@ -2,20 +2,19 @@ package net.dashmc.plots.plot.data.blocks;
 
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.BlockBag;
-import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.utils.helpers.MethodWrapper;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.BlockDoor;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
-import net.minecraft.server.v1_8_R3.EntityHuman;
-import net.minecraft.server.v1_8_R3.EnumDirection;
 import net.minecraft.server.v1_8_R3.IBlockData;
-import net.minecraft.server.v1_8_R3.Material;
-import net.minecraft.server.v1_8_R3.PacketPlayOutWorldEvent;
 import net.minecraft.server.v1_8_R3.TileEntity;
 
-public class VirtualBlockDoor extends VirtualBlock<BlockDoor> {
+public class VirtualBlockDoor extends VirtualOpenableBlock<BlockDoor> {
+
+	public VirtualBlockDoor() {
+		super(BlockDoor.OPEN);
+	}
 
 	@Override
 	public void onBlockHarvested(BlockDoor block, IEnvironment environment, BlockPosition pos, IBlockData data,
@@ -23,25 +22,10 @@ public class VirtualBlockDoor extends VirtualBlock<BlockDoor> {
 		bag.add(block.getDropType(data, null, 0));
 	}
 
+	// the lower half keeps whether the door is open
 	@Override
-	public boolean interact(BlockDoor block, IEnvironment environment, BlockPosition pos,
-			IBlockData iblockdata, EntityHuman entityhuman, EnumDirection enumdirection, float f, float f1, float f2) {
-
-		if (block.getMaterial() == Material.ORE)
-			return true;
-
-		BlockPosition lower = iblockdata.get(BlockDoor.HALF) == BlockDoor.EnumDoorHalf.LOWER ? pos : pos.down();
-		IBlockData door = pos.equals(lower) ? iblockdata : environment.getType(lower);
-
-		if (door.getBlock() != block)
-			return false;
-
-		door = door.a(BlockDoor.OPEN);
-		environment.setBlock(lower, door, 2);
-
-		int eventCode = iblockdata.get(BlockDoor.OPEN).booleanValue() ? 1003 : 1006;
-		environment.broadcast(new PacketPlayOutWorldEvent(eventCode, pos, 0, false));
-		return true;
+	protected BlockPosition getStatePosition(BlockPosition pos, IBlockData data) {
+		return data.get(BlockDoor.HALF) == BlockDoor.EnumDoorHalf.LOWER ? pos : pos.down();
 	}
 
 	@Override
@@ -97,11 +81,6 @@ public class VirtualBlockDoor extends VirtualBlock<BlockDoor> {
 		boolean flag2 = (i1 & 2) != 0;
 
 		return (k & 7) | (flag ? 8 : 0) | (flag1 ? 16 : 0) | (flag2 ? 32 : 0);
-	}
-
-	@Override
-	public Class<BlockDoor> getClazz() {
-		return BlockDoor.class;
 	}
 
 }

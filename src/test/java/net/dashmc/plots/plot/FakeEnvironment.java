@@ -17,8 +17,10 @@ import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.pipeline.RenderPipeline;
 import net.dashmc.plots.pipeline.RenderPipelineFactory;
 import net.dashmc.plots.plot.data.BlockBag;
+import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.CuboidRegion;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.EnumDirection;
@@ -32,7 +34,7 @@ import net.minecraft.server.v1_8_R3.World;
 /**
  * An environment kept in memory, for tests. It records the events it calls
  * and the packets it broadcasts. There are no chunks and no real world, and
- * the owner's inventory has no player behind it.
+ * the owner's inventory has no player behind it. setBlock ignores its flags.
  */
 public class FakeEnvironment implements IEnvironment {
 	private final @Getter UUID ownerUuid = UUID.randomUUID();
@@ -45,19 +47,29 @@ public class FakeEnvironment implements IEnvironment {
 	private final @Getter List<Event> calledEvents = new ArrayList<>();
 	private final @Getter List<Packet<?>> broadcastPackets = new ArrayList<>();
 	private final @Getter EventDispatcher events = calledEvents::add;
+	private final @Getter VirtualBlockRegistry blockHandlers;
+	private final @Getter Debug debug = Debug.OFF;
 
 	private final @Getter PlayerInventory ownerInventory = new PlayerInventory(null);
-	private final @Getter BlockBag blockBag = new BlockBag(ownerInventory, events);
+	private final @Getter BlockBag blockBag = new BlockBag(ownerInventory, events, debug);
+
+	/**
+	 * An environment of the chunk at 0, 0, whose blocks all do what vanilla does.
+	 */
+	public FakeEnvironment() {
+		this(new VirtualBlockRegistry());
+	}
 
 	/**
 	 * An environment of the chunk at 0, 0.
 	 */
-	public FakeEnvironment() {
-		this(new CuboidRegion(new BlockPosition(0, 0, 0), new BlockPosition(15, 255, 15)));
+	public FakeEnvironment(VirtualBlockRegistry blockHandlers) {
+		this(new CuboidRegion(new BlockPosition(0, 0, 0), new BlockPosition(15, 255, 15)), blockHandlers);
 	}
 
-	public FakeEnvironment(CuboidRegion region) {
+	public FakeEnvironment(CuboidRegion region, VirtualBlockRegistry blockHandlers) {
 		this.region = region;
+		this.blockHandlers = blockHandlers;
 	}
 
 	@Override

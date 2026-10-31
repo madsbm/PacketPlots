@@ -71,8 +71,7 @@ public class Paster {
 
 		char[] blockIds = new char[4096];
 		for (int i = 0; i < metaStartIdx; i += 2) {
-			char blockId = (char) ((map.a[i] & 0xFF) | ((map.a[i + 1] & 0xFF) << 8));
-			blockIds[idPointer++] = blockId;
+			blockIds[idPointer++] = Utils.getMapBlockId(map.a, i);
 
 			if (idPointer == 4096) {
 				for (; sectionIndex < 16; sectionIndex++) {

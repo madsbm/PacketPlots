@@ -13,12 +13,14 @@ import net.minecraft.server.v1_8_R3.NBTTagCompound;
  * this wrapper exists to give proper names to the methods
  */
 public class NBTHelper {
+	// the most a payload may take in memory, like vanilla's limit for a packet's NBT
+	private static final long MAX_PAYLOAD_SIZE = 2097152L;
 
 	public static void writePayload(DataOutput os, NBTTagCompound tag) throws IOException {
 		NBTCompressedStreamTools.a(tag, os);
 	}
 
-	public static NBTTagCompound loadPayload(DataInput input, NBTReadLimiter readLimiter) throws IOException {
-		return NBTCompressedStreamTools.a(input, readLimiter);
+	public static NBTTagCompound loadPayload(DataInput input) throws IOException {
+		return NBTCompressedStreamTools.a(input, new NBTReadLimiter(MAX_PAYLOAD_SIZE));
 	}
 }

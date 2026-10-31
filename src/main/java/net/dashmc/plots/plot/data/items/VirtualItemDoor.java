@@ -1,11 +1,9 @@
 package net.dashmc.plots.plot.data.items;
 
 import net.dashmc.plots.plot.IEnvironment;
-import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.dashmc.plots.utils.helpers.FieldAccess;
-import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockDoor;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -24,11 +22,11 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 		if (direction != EnumDirection.UP)
 			return false;
 
-		Debug.log(() -> "interact with called on item door. is border place? " + isBorderPlace);
+		environment.getDebug().log(() -> "interact with called on item door. is border place? " + isBorderPlace);
 
 		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block currBlock = ibd.getBlock();
-		if (!VirtualBlock.shouldRemainAt(currBlock, environment, pos)) {
+		if (!environment.getBlockHandlers().shouldRemainAt(currBlock, environment, pos)) {
 			pos = pos.shift(direction);
 		} else if (isBorderPlace)
 			return false;
@@ -45,7 +43,7 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 		--item.count;
 
 		// not lazy, as pos is reassigned above
-		Debug.log("placed door @ " + pos);
+		environment.getDebug().log("placed door @ " + pos);
 		return true;
 	}
 
@@ -75,8 +73,4 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 		environment.setBlock(pos.up(), iblockdata.set(BlockDoor.HALF, BlockDoor.EnumDoorHalf.UPPER), 3);
 	}
 
-	@Override
-	public Class<ItemDoor> getClazz() {
-		return ItemDoor.class;
-	}
 }

@@ -30,4 +30,30 @@ public class VirtualMapChunkPacket implements IPacketExtension<PacketPlayOutMapC
 		if (chunkMap != null)
 			chunkMapField.set(packet, chunkMap);
 	}
+
+	/**
+	 * Wraps a packet that's being sent, to read and change it.
+	 */
+	public VirtualMapChunkPacket(PacketPlayOutMapChunk packet) {
+		this.packet = packet;
+	}
+
+	public int getChunkX() {
+		return xCoordField.get(packet);
+	}
+
+	public int getChunkZ() {
+		return zCoordField.get(packet);
+	}
+
+	/**
+	 * @return the chunk's data, or null if it's yet to be rendered
+	 */
+	public ChunkMap getChunkMap() {
+		return chunkMapField.get(packet);
+	}
+
+	public void setChunkMap(ChunkMap chunkMap) {
+		chunkMapField.set(packet, chunkMap);
+	}
 }

@@ -40,9 +40,4 @@ public class VirtualEnderChestBlock extends VirtualBlock<BlockEnderChest> {
 
 	}
 
-	@Override
-	public Class<BlockEnderChest> getClazz() {
-		return BlockEnderChest.class;
-	}
-
 }

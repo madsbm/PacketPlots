@@ -12,7 +12,7 @@ public class RelativePositionTransformer implements IRenderTransformer {
 	final BlockVector offset;
 
 	@Override
-	public void accept(VirtualChunk virtualChunk, ChunkMap chunkMap, Integer metaStartIdx) {
+	public void accept(VirtualChunk virtualChunk, ChunkMap chunkMap, int metaStartIdx) {
 		byte[] blockIds = new byte[chunkMap.a.length];
 
 		int offsetX = offset.getBlockX();

@@ -7,7 +7,6 @@ import org.bukkit.util.NumberConversions;
 
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.events.VirtualPlayerMoveEvent;
-import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.utils.CuboidRegion;
@@ -134,17 +133,6 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 
 		return new Location(vConn.getEnvironment().getRealWorld().getWorld(), xCoord.get(conn), yCoord.get(conn),
 				zCoord.get(conn), yaw.get(conn), pitch.get(conn));
-	}
-
-	@Override
-	public Class<PacketPlayInFlying> getClazz() {
-		return PacketPlayInFlying.class;
-	}
-
-	// also gets the look, position and position-look packets, which subclass
-	// PacketPlayInFlying
-	public static void register(CuboidRegion acDisabledRegion) {
-		InterceptorRegistry.register(new MovementPacketInterceptor(acDisabledRegion));
 	}
 
 }

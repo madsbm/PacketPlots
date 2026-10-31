@@ -5,13 +5,11 @@ import org.bukkit.Location;
 import org.bukkit.util.NumberConversions;
 
 import lombok.RequiredArgsConstructor;
-import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.plot.interaction.InteractionHandler;
-import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.EnumDirection;
@@ -59,12 +57,12 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 					+ NumberConversions.square(eyeLoc.getY() - pos.getY())
 					+ NumberConversions.square(eyeLoc.getZ() - pos.getZ());
 
-			Debug.log(() -> "Reach dist: " + reachDist);
+			env.getDebug().log(() -> "Reach dist: " + reachDist);
 
 			if (reachDist > (player.getBukkitEntity().getGameMode() == GameMode.CREATIVE ? 7 * 7 : 6 * 6))
 				return true;
 
-			Debug.log(() -> "Distance from block: "
+			env.getDebug().log(() -> "Distance from block: "
 					+ player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D));
 
 			if (player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D) < 64D) {
@@ -79,9 +77,9 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 			if (isBorderPlace) {
 				player.playerConnection.sendPacket(new PacketPlayOutBlockChange(env.getRealWorld(), pos));
 			} else {
-				player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
+				VirtualBlockChangePacket.resync(player, env, pos);
 			}
-			player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos.shift(dir)).getPacket());
+			VirtualBlockChangePacket.resync(player, env, pos.shift(dir));
 		}
 
 		inHand = player.inventory.getItemInHand();
@@ -108,12 +106,4 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 		return true;
 	}
 
-	@Override
-	public Class<PacketPlayInBlockPlace> getClazz() {
-		return PacketPlayInBlockPlace.class;
-	}
-
-	public static void register(InteractionHandler interactions) {
-		InterceptorRegistry.register(new BlockPlacementPacketInterceptor(interactions));
-	}
 }

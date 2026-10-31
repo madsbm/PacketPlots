@@ -1,57 +1,48 @@
 package net.dashmc.plots.plot;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.UUID;
-import java.util.logging.Level;
 
-import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
 import net.dashmc.plots.config.PlotConfig;
-import net.dashmc.plots.events.EventDispatcher;
-import net.dashmc.plots.player.VirtualPlayerInteractManager;
+import net.dashmc.plots.packets.PacketInjector;
 import net.dashmc.plots.plot.data.VirtualChunk;
-import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk;
 
 /**
- * Loads, saves and keeps track of the environments of online players, and
- * turns virtualization on and off for them, keeping track of their connections.
- *
- * Save file structure:
- * version length (4 bytes - int)
- * version (2 bytes per char)
- * the environment's own data, see CuboidEnvironment
+ * Keeps track of the environments of online players, which it loads and saves
+ * with the EnvironmentStore, and turns virtualization on and off for them,
+ * keeping track of their connections.
  */
 public class EnvironmentManager {
-	private final File dataDirectory;
+	private final EnvironmentStore store;
 	private final PlotConfig config;
-	private final String pluginVersion;
-	private final EventDispatcher events;
+	private final EnvironmentContext context;
+	private final PacketInjector packets;
+	private final boolean forceChunkMapSend;
 	private final HashMap<UUID, CuboidEnvironment> environments = new HashMap<>();
 	private final HashMap<UUID, VirtualConnection> connections = new HashMap<>();
 
-	public EnvironmentManager(File dataDirectory, PlotConfig config, String pluginVersion, EventDispatcher events) {
-		this.dataDirectory = dataDirectory;
+	/**
+	 * @param context           what new environments are given
+	 * @param packets           puts the connections' packet handlers in the
+	 *                          players' pipelines
+	 * @param forceChunkMapSend whether connections render chunks before sending
+	 *                          them, see VirtualConnection#getRenderPacket
+	 */
+	public EnvironmentManager(EnvironmentStore store, PlotConfig config, EnvironmentContext context,
+			PacketInjector packets, boolean forceChunkMapSend) {
+		this.store = store;
 		this.config = config;
-		this.pluginVersion = pluginVersion;
-		this.events = events;
-
-		dataDirectory.mkdirs();
+		this.context = context;
+		this.packets = packets;
+		this.forceChunkMapSend = forceChunkMapSend;
 	}
 
 	public IEnvironment get(Player player) {
@@ -82,27 +73,14 @@ public class EnvironmentManager {
 		if (!player.isOnline())
 			throw new IOException("Tried loading the environment of offline player: " + uuid);
 
-		File dataFile = getDataFile(uuid);
-		CuboidEnvironment environment;
+		CuboidEnvironment environment = store.load(player);
+		if (environment == null) {
+			context.getDebug().log(() -> "No save file could be found for " + player.getName());
 
-		if (dataFile.exists()) {
-			try (DataInputStream dataInputStream = new DataInputStream(
-					new BufferedInputStream(new FileInputStream(dataFile)))) {
-				readVersionCode(dataInputStream);
-				environment = new CuboidEnvironment(player, dataInputStream, events);
-			}
-
-			if (!uuid.equals(environment.getOwnerUuid()))
-				throw new IOException("Mismatched UUIDs: (" + uuid + " => " + environment.getOwnerUuid()
-						+ "). File might be corrupt");
-		} else {
-			Debug.log(() -> "No save file could be found for " + player.getName());
-
-			environment = new CuboidEnvironment(player, config.getWorld(), config.getRegion(), events);
-			save(environment);
+			environment = CuboidEnvironment.create(player, config.getWorld(), config.getRegion(), context);
+			store.save(environment);
 		}
 
-		VirtualPlayerInteractManager.inject(player, this);
 		environments.put(uuid, environment);
 		startVirtualization(player);
 		return environment;
@@ -119,17 +97,16 @@ public class EnvironmentManager {
 
 		CuboidEnvironment environment = environments.remove(player.getUniqueId());
 		if (environment != null) {
-			save(environment);
+			store.save(environment);
 			environment.close();
 		}
-
-		VirtualPlayerInteractManager.uninject(player);
 	}
 
 	/**
 	 * Unloads every environment, for when the plugin is disabled. Every player is
-	 * sent their real chunks, and keeps no trace of the plugin: no Netty handler
-	 * and no VirtualPlayerInteractManager.
+	 * sent their real chunks, and keeps no trace of the plugin: closing their
+	 * connections takes out their Netty handlers and
+	 * VirtualPlayerInteractManagers.
 	 */
 	public void unloadAll() {
 		// connections are closed first, so closing an environment doesn't send its
@@ -142,19 +119,15 @@ public class EnvironmentManager {
 		connections.clear();
 
 		for (CuboidEnvironment environment : environments.values()) {
-			save(environment);
+			store.save(environment);
 			environment.close();
 		}
 		environments.clear();
-
-		for (Player player : Bukkit.getOnlinePlayers()) {
-			VirtualPlayerInteractManager.uninject(player);
-		}
 	}
 
 	public void saveAll() {
 		for (CuboidEnvironment environment : environments.values()) {
-			save(environment);
+			store.save(environment);
 		}
 	}
 
@@ -167,7 +140,7 @@ public class EnvironmentManager {
 			return;
 
 		VirtualConnection connection = VirtualConnection.establish(((CraftPlayer) player).getHandle(), environment,
-				config.getSafeLocation());
+				config.getSafeLocation(), packets, forceChunkMapSend);
 		connections.put(player.getUniqueId(), connection);
 		environment.addViewer(connection);
 
@@ -195,54 +168,5 @@ public class EnvironmentManager {
 		for (VirtualChunk chunk : environment.getChunks()) {
 			player.playerConnection.sendPacket(new PacketPlayOutMapChunk(chunk.getChunk(), false, 65535));
 		}
-	}
-
-	private void save(CuboidEnvironment environment) {
-		UUID ownerUuid = environment.getOwnerUuid();
-		File dataFile = getDataFile(ownerUuid);
-		File tempFile = new File(dataDirectory, ownerUuid + ".dat.tmp");
-
-		// write to a temporary file first, so a failed save never replaces the previous
-		// one
-		try (DataOutputStream dataOutputStream = new DataOutputStream(
-				new BufferedOutputStream(new FileOutputStream(tempFile)))) {
-			dataOutputStream.writeInt(pluginVersion.length());
-			for (char versionCodeChar : pluginVersion.toCharArray())
-				dataOutputStream.writeChar(versionCodeChar);
-
-			environment.serialize(dataOutputStream);
-		} catch (IOException e) {
-			Bukkit.getLogger().log(Level.SEVERE, "Failed to save the PacketPlot of " + ownerUuid, e);
-			tempFile.delete();
-			return;
-		}
-
-		try {
-			Files.move(tempFile.toPath(), dataFile.toPath(), StandardCopyOption.REPLACE_EXISTING,
-					StandardCopyOption.ATOMIC_MOVE);
-		} catch (IOException e) {
-			Bukkit.getLogger().log(Level.SEVERE, "Failed to replace the save file of " + ownerUuid, e);
-		}
-	}
-
-	private String readVersionCode(DataInputStream stream) throws IOException {
-		StringBuilder versionCode = new StringBuilder();
-		int versionLength = stream.readInt();
-		for (int i = 0; i < versionLength; i++)
-			versionCode.append(stream.readChar());
-
-		String generatedWith = versionCode.toString();
-		if (!generatedWith.equalsIgnoreCase(pluginVersion)) {
-			// TODO: apply some sort of migration or different loading style
-
-			Bukkit.getLogger().warning("[PacketPlots] Save file differs in versions! Trying to load anyway... ("
-					+ generatedWith + " -> " + pluginVersion + ")");
-		}
-
-		return generatedWith;
-	}
-
-	private File getDataFile(UUID ownerUuid) {
-		return new File(dataDirectory, ownerUuid + ".dat");
 	}
 }

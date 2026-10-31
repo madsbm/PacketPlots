@@ -1,43 +1,59 @@
 package net.dashmc.plots.compatibility;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
-import org.bukkit.plugin.Plugin;
-
-import lombok.Getter;
-import net.dashmc.plots.utils.CuboidRegion;
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.utils.misc.Debug;
 
+/**
+ * The compatibilities with other plugins, of which the ones for installed
+ * plugins are activated. Other plugins may register their own, and load them.
+ */
+@RequiredArgsConstructor
 public class PluginCompatibility {
-	@Getter
-	private static HashSet<CompatibilityMode> compatibilities = new HashSet<>();
+	private final Debug debug;
+	private final List<CompatibilityLoader> registered = new ArrayList<>();
+	private final Set<CompatibilityLoader> active = new LinkedHashSet<>();
 
-	public static void setCompatibilities(HashSet<CompatibilityMode> compatibilities, Plugin plugin,
-			CuboidRegion acDisabledRegion) {
-		PluginCompatibility.compatibilities = compatibilities;
-		compatibilities.forEach((compat) -> compat.activate(plugin, acDisabledRegion, true));
+	public void register(CompatibilityLoader compatibility) {
+		registered.add(compatibility);
 	}
 
 	/**
-	 * @param plugin           the plugin to register listeners for
-	 * @param acDisabledRegion where anticheats are disabled
+	 * Activates the registered compatibilities whose plugins are installed, and
+	 * that aren't active yet.
 	 */
-	public static void load(Plugin plugin, CuboidRegion acDisabledRegion) {
-		compatibilities.clear();
+	public void load() {
+		for (CompatibilityLoader compatibility : registered) {
+			if (active.contains(compatibility))
+				continue;
 
-		for (CompatibilityMode mode : CompatibilityMode.values()) {
-			boolean shouldActivate = mode.shouldActivate();
-
-			Debug.log(() -> "Activating compat. mode " + mode.toString() + ": " + shouldActivate);
+			boolean shouldActivate = compatibility.shouldActivate();
+			debug.log(() -> "Activating compat. mode " + compatibility.getClass().getSimpleName() + ": "
+					+ shouldActivate);
 			if (!shouldActivate)
 				continue;
 
-			mode.activate(plugin, acDisabledRegion, false);
-			compatibilities.add(mode);
+			compatibility.activate();
+			active.add(compatibility);
 		}
 	}
 
-	public static boolean isActive(CompatibilityMode mode) {
-		return compatibilities.contains(mode);
+	public boolean isActive(Class<? extends CompatibilityLoader> type) {
+		for (CompatibilityLoader compatibility : active) {
+			if (type.isInstance(compatibility))
+				return true;
+		}
+
+		return false;
+	}
+
+	public Collection<CompatibilityLoader> getActive() {
+		return Collections.unmodifiableCollection(active);
 	}
 }

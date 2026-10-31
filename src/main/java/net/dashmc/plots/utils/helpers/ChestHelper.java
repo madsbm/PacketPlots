@@ -1,6 +1,7 @@
 package net.dashmc.plots.utils.helpers;
 
-import org.bukkit.Bukkit;
+import java.util.logging.Logger;
+
 import org.bukkit.craftbukkit.v1_8_R3.event.CraftEventFactory;
 
 import lombok.experimental.UtilityClass;
@@ -26,9 +27,11 @@ public class ChestHelper {
 	 * @param environment
 	 * @param sessionTerminated if the user quits whilst a container is open this
 	 *                          will be true. otherwise false.
+	 * @param logger            where to warn about an inventory it doesn't know
 	 * @return
 	 */
-	public boolean closeCurrentChest(EntityPlayer player, IEnvironment environment, boolean sessionTerminated) {
+	public boolean closeCurrentChest(EntityPlayer player, IEnvironment environment, boolean sessionTerminated,
+			Logger logger) {
 		PlayerInventory playerInventory = player.inventory;
 		if (!(player.activeContainer instanceof ContainerChest))
 			return false;
@@ -66,7 +69,7 @@ public class ChestHelper {
 			success = true;
 
 		} else {
-			Bukkit.getLogger().warning("Window close packet sent with unrecognized inventory: " + chest.e().getClass());
+			logger.warning("Window close packet sent with unrecognized inventory: " + chest.e().getClass());
 		}
 
 		if (success) {

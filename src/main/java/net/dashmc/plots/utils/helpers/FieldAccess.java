@@ -1,6 +1,7 @@
 package net.dashmc.plots.utils.helpers;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 
 import com.google.common.primitives.Primitives;
 
@@ -47,6 +48,23 @@ public class FieldAccess<T> {
 		} catch (IllegalAccessException e) {
 			// can't happen, as the field was made accessible
 			throw new IllegalStateException("Couldn't get field '" + field.getName() + "'", e);
+		}
+	}
+
+	/**
+	 * Copies the instance fields the class and its superclasses declare from one
+	 * instance of it to another. Fields of the instances' subclasses are left out,
+	 * so the instances may be of different subclasses.
+	 */
+	public static <T> void copyFields(Class<T> clazz, T source, T target) {
+		for (Class<?> current = clazz; current != null; current = current.getSuperclass()) {
+			for (Field field : current.getDeclaredFields()) {
+				if (Modifier.isStatic(field.getModifiers()))
+					continue;
+
+				FieldAccess<Object> access = new FieldAccess<>(field, Object.class);
+				access.set(target, access.get(source));
+			}
 		}
 	}
 

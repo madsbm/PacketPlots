@@ -2,33 +2,36 @@ package net.dashmc.plots.plot;
 
 import org.bukkit.Location;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
-import net.dashmc.plots.compatibility.CompatibilityMode;
-import net.dashmc.plots.compatibility.PluginCompatibility;
 import net.dashmc.plots.events.ACRegionEnterExit;
 import net.dashmc.plots.events.EnvironmentEnterExit;
-import net.dashmc.plots.packets.PacketHandler;
+import net.dashmc.plots.packets.PacketInjector;
 import net.dashmc.plots.packets.extensions.VirtualMapChunkPacket;
+import net.dashmc.plots.player.VirtualPlayerInteractManager;
 import net.dashmc.plots.plot.data.VirtualChunk;
-import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 
 /**
  * A player's view of a virtual environment: which environment they're shown,
- * and where they are in relation to it.
+ * and where they are in relation to it. While it's open, the player has a
+ * packet handler and a VirtualPlayerInteractManager.
  */
 @Getter
 public class VirtualConnection {
 	private @Setter boolean moved = false;
 
-	private VirtualConnection(EntityPlayer player, IEnvironment environment, Location safeLocation) {
+	private VirtualConnection(EntityPlayer player, IEnvironment environment, Location safeLocation,
+			PacketInjector packets, boolean forceChunkMapSend) {
 		this.player = player;
 		this.environment = environment;
 		this.original = environment;
 		this.safeLocation = safeLocation;
+		this.packets = packets;
+		this.forceChunkMapSend = forceChunkMapSend;
 
 		open();
 	}
@@ -40,6 +43,11 @@ public class VirtualConnection {
 	private final IEnvironment original;
 	// where the player is teleported to when they visit another environment
 	private final Location safeLocation;
+	private final @Getter(AccessLevel.NONE) PacketInjector packets;
+	// renders chunks before sending them, for plugins that read them on the way
+	private final @Getter(AccessLevel.NONE) boolean forceChunkMapSend;
+	// keeps track of the player digging blocks in the environment
+	private VirtualPlayerInteractManager interactManager;
 	private boolean insideEnvironment;
 	private boolean insideACRegion;
 
@@ -74,7 +82,7 @@ public class VirtualConnection {
 			return null;
 
 		setVisiting(!other.equals(original));
-		Debug.log(() -> "teleporting player to " + safeLocation);
+		environment.getDebug().log(() -> "teleporting player to " + safeLocation);
 		player.getBukkitEntity().teleport(safeLocation);
 
 		this.environment = other;
@@ -96,7 +104,7 @@ public class VirtualConnection {
 		// calculating the chunkmap just for it to get thrown away. thus, only calculate
 		// if needed
 		ChunkMap map;
-		if (this.injected && !PluginCompatibility.isActive(CompatibilityMode.FORCE_CHUNKMAP_SEND)) {
+		if (this.injected && !forceChunkMapSend) {
 			map = null;
 		} else {
 			map = vChunk.getEnvironment().getRenderPipeline().render(vChunk);
@@ -112,20 +120,28 @@ public class VirtualConnection {
 		});
 	}
 
+	/**
+	 * @param packets           puts the connection's packet handler in the
+	 *                          player's pipeline
+	 * @param forceChunkMapSend whether to render chunks before sending them, for
+	 *                          plugins that read them on the way
+	 */
 	public static VirtualConnection establish(EntityPlayer player, IEnvironment environment,
-			Location safeLocation) {
-		return new VirtualConnection(player, environment, safeLocation);
+			Location safeLocation, PacketInjector packets, boolean forceChunkMapSend) {
+		return new VirtualConnection(player, environment, safeLocation, packets, forceChunkMapSend);
 	}
 
 	private void open() {
-		PacketHandler.inject(this);
+		packets.inject(this);
+		this.interactManager = VirtualPlayerInteractManager.inject(this);
 		this.injected = true;
 	}
 
 	public void close() {
 		setInsideACRegion(false);
 
-		PacketHandler.remove(player);
+		packets.remove(player);
+		VirtualPlayerInteractManager.uninject(player);
 
 		environment.removeViewer(this);
 		this.injected = false;

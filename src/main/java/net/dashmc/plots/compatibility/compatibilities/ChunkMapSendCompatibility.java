@@ -1,25 +1,26 @@
 package net.dashmc.plots.compatibility.compatibilities;
 
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.compatibility.CompatibilityLoader;
-import net.dashmc.plots.utils.CuboidRegion;
 
-public class ChunkMapSendCompatibility extends CompatibilityLoader {
+@RequiredArgsConstructor
+public class ChunkMapSendCompatibility implements CompatibilityLoader {
+	private final Plugin plugin;
 
 	@Override
 	public boolean shouldActivate() {
-		return Bukkit.getServer().getPluginManager().getPlugin("packetevents") != null;
+		return plugin.getServer().getPluginManager().getPlugin("packetevents") != null;
 	}
 
 	/**
 	 * doesnt actively change anything - is depended upon
 	 * 
-	 * @see src\main\java\net\dashmc\plots\plot\VirtualConnection.java#L143
+	 * @see net.dashmc.plots.plot.VirtualConnection#getRenderPacket
 	 */
 	@Override
-	public void activate(Plugin plugin, CuboidRegion acDisabledRegion, boolean forced) {
+	public void activate() {
 	}
 
 }

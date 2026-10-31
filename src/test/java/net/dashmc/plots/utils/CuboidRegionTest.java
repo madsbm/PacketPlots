@@ -4,6 +4,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -42,6 +43,30 @@ public class CuboidRegionTest {
 		assertEquals(2 * 3 * 4, visited.size());
 		for (BlockPosition pos : visited)
 			assertTrue(region.includes(pos));
+	}
+
+	@Test
+	public void forEachInSectionVisitsTheRegionsPartOfTheSectionOnce() {
+		// the section at chunk 0, 1, 0 is x 0 to 15, y 16 to 31 and z 0 to 15
+		CuboidRegion region = region(-5, 10, 14, 3, 20, 40);
+		Set<BlockPosition> visited = new HashSet<>();
+
+		region.forEachInSection(0, 1, 0, (x, y, z) -> assertTrue(visited.add(new BlockPosition(x, y, z))));
+
+		// x 0 to 3, y 16 to 20 and z 14 to 15
+		assertEquals(4 * 5 * 2, visited.size());
+		for (BlockPosition pos : visited) {
+			assertTrue(region.includes(pos));
+			assertTrue(pos.getX() >> 4 == 0 && pos.getY() >> 4 == 1 && pos.getZ() >> 4 == 0);
+		}
+	}
+
+	@Test
+	public void forEachInSectionVisitsNothingOutsideTheRegion() {
+		CuboidRegion region = region(0, 0, 0, 15, 15, 15);
+
+		region.forEachInSection(1, 0, 0, (x, y, z) -> fail("visited " + x + ", " + y + ", " + z));
+		region.forEachInSection(0, 1, 0, (x, y, z) -> fail("visited " + x + ", " + y + ", " + z));
 	}
 
 	@Test

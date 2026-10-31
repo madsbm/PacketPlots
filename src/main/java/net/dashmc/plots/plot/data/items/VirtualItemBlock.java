@@ -1,10 +1,8 @@
 package net.dashmc.plots.plot.data.items;
 
 import net.dashmc.plots.plot.IEnvironment;
-import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.interaction.PlacementRules;
-import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityHuman;
@@ -23,14 +21,14 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block block = ibd.getBlock();
 
-		if (!VirtualBlock.shouldRemainAt(block, environment, pos))
+		if (!environment.getBlockHandlers().shouldRemainAt(block, environment, pos))
 			pos = pos.shift(direction);
 		else if (isBorderPlace)
 			return false;
 
 		Block toPlace = ((ItemBlock) item.getItem()).d();
 		// not lazy, as pos is reassigned above
-		Debug.log(
+		environment.getDebug().log(
 				"Trying to place at " + pos.toString() + " ( " + toPlace.toString() + " on " + block.toString() + " )");
 
 		if (item.count == 0)
@@ -50,7 +48,7 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 		IBlockData blockData = environment.getType(pos);
 		if (blockData.getBlock() == toPlace) {
 			initializeBlock(environment, pos, item);
-			VirtualBlock.postPlace(toPlace, environment, pos, blockData, player, item);
+			environment.getBlockHandlers().postPlace(toPlace, environment, pos, blockData, player, item);
 		}
 		item.count--;
 
@@ -82,11 +80,6 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 		tile.a(compound);
 		tile.update();
 		return true;
-	}
-
-	@Override
-	public Class<ItemBlock> getClazz() {
-		return ItemBlock.class;
 	}
 
 }

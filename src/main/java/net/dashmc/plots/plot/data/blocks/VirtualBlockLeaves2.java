@@ -14,9 +14,4 @@ public class VirtualBlockLeaves2 extends VirtualBlock<BlockLeaves2> {
 		return ((BlockWood.EnumLogVariant) iblockdata.get(BlockLeaves2.VARIANT)).a() - 4;
 	}
 
-	@Override
-	public Class<BlockLeaves2> getClazz() {
-		return BlockLeaves2.class;
-	}
-
 }

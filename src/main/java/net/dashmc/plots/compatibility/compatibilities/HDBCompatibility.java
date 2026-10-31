@@ -1,41 +1,36 @@
 package net.dashmc.plots.compatibility.compatibilities;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Logger;
 
-import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import me.arcaniax.hdb.api.DatabaseLoadEvent;
 import me.arcaniax.hdb.api.HeadDatabaseAPI;
 import net.dashmc.plots.compatibility.CompatibilityLoader;
 import net.dashmc.plots.events.PreBlockBagDepositEvent;
-import net.dashmc.plots.utils.CuboidRegion;
 import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.Items;
 
-public class HDBCompatibility extends CompatibilityLoader implements Listener {
-	@Getter
-	private boolean activated = false;
-	private AtomicReference<HeadDatabaseAPI> api = new AtomicReference<>();
+@RequiredArgsConstructor
+public class HDBCompatibility implements CompatibilityLoader, Listener {
+	private final Plugin plugin;
+	private final Logger logger;
+	private final AtomicReference<HeadDatabaseAPI> api = new AtomicReference<>();
 
 	@Override
 	public boolean shouldActivate() {
-		return Bukkit.getPluginManager().getPlugin("HeadDatabase") != null;
+		return plugin.getServer().getPluginManager().getPlugin("HeadDatabase") != null;
 	}
 
 	@Override
-	public void activate(Plugin plugin, CuboidRegion acDisabledRegion, boolean forced) {
-		if (this.activated)
-			return;
-		this.activated = true;
-
+	public void activate() {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
-		plugin.getServer().getPluginManager().registerEvents(new BlockBagListener(api), plugin);
+		plugin.getServer().getPluginManager().registerEvents(new BlockBagListener(api, logger), plugin);
 	}
 
 	@EventHandler
@@ -47,12 +42,13 @@ public class HDBCompatibility extends CompatibilityLoader implements Listener {
 	@RequiredArgsConstructor
 	private static class BlockBagListener implements Listener {
 		private final AtomicReference<HeadDatabaseAPI> api;
+		private final Logger logger;
 
 		@EventHandler
 		public void onBagPreUpdate(PreBlockBagDepositEvent event) {
 			HeadDatabaseAPI api = this.api.get();
 			if (api == null) {
-				Bukkit.getLogger().warning("PreBlockBagDepositEvent called before HDB was initialized!");
+				logger.warning("PreBlockBagDepositEvent called before HDB was initialized!");
 				return;
 			}
 

@@ -73,6 +73,37 @@ public class FieldAccessTest {
 		new FieldAccess<>(Sample.class, "missing", int.class);
 	}
 
+	private static class SampleSubclass extends Sample {
+		private String own = "own";
+	}
+
+	@Test
+	public void copyFieldsCopiesTheFieldsOfTheClassAndItsSuperclasses() {
+		Sample source = new SampleSubclass();
+		new FieldAccess<>(Sample.class, "number", int.class).set(source, 9);
+		new FieldAccess<>(Sample.class, "text", String.class).set(source, "copied");
+		Sample target = new Sample();
+
+		FieldAccess.copyFields(Sample.class, source, target);
+
+		assertEquals(9, (int) new FieldAccess<>(Sample.class, "number", int.class).get(target));
+		assertEquals("copied", new FieldAccess<>(Sample.class, "text", String.class).get(target));
+		assertSame(new FieldAccess<>(Sample.class, "handle", Object.class).get(source),
+				new FieldAccess<>(Sample.class, "handle", Object.class).get(target));
+	}
+
+	// e.g. a VirtualPlayerInteractManager left behind by a reload
+	@Test
+	public void copyFieldsLeavesOutTheFieldsOfSubclasses() {
+		SampleSubclass source = new SampleSubclass();
+		source.own = "source";
+		SampleSubclass target = new SampleSubclass();
+
+		FieldAccess.copyFields(Sample.class, source, target);
+
+		assertEquals("own", target.own);
+	}
+
 	// what VirtualChunk does when it copies a real chunk section
 	@Test
 	public void readsTheBlockCountOfAChunkSection() {

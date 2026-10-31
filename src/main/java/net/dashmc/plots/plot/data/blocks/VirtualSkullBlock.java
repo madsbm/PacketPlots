@@ -45,9 +45,4 @@ public class VirtualSkullBlock extends VirtualBlock<BlockSkull> {
 				: super.getDropData(environment, blockposition);
 	}
 
-	@Override
-	public Class<BlockSkull> getClazz() {
-		return BlockSkull.class;
-	}
-
 }

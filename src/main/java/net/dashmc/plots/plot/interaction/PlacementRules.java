@@ -5,8 +5,7 @@ import org.bukkit.craftbukkit.v1_8_R3.util.CraftMagicNumbers;
 import net.dashmc.plots.events.VirtualBlockCanBuildEvent;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.IVirtualWorld;
-import net.dashmc.plots.plot.data.VirtualBlock;
-import net.dashmc.plots.utils.misc.Debug;
+import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.Block;
@@ -27,8 +26,9 @@ public class PlacementRules {
 	public static boolean isBuildable(IEnvironment env, Block block, BlockPosition pos, boolean ignoreCollision,
 			EnumDirection dir, Entity entity, ItemStack itemStack) {
 		Block curr = env.getType(pos).getBlock();
+		VirtualBlockRegistry blocks = env.getBlockHandlers();
 		AxisAlignedBB bb = ignoreCollision ? null
-				: VirtualBlock.getBoundingBox(block, env, pos, block.getBlockData());
+				: blocks.getBoundingBox(block, env, pos, block.getBlockData());
 
 		final boolean defaultReturn;
 		if (bb != null && !isNoOtherEntitiesInside(bb, entity)) {
@@ -36,12 +36,12 @@ public class PlacementRules {
 		} else if (curr.getMaterial() == Material.ORIENTABLE && block == Blocks.ANVIL) {
 			defaultReturn = true;
 		} else {
-			Debug.log(() -> "isReplaceable: " + curr.getMaterial().isReplaceable());
-			Debug.log(() -> "mayPlace: " + VirtualBlock.mayPlace(block, env, pos, dir, itemStack) + " (pos: "
+			env.getDebug().log(() -> "isReplaceable: " + curr.getMaterial().isReplaceable());
+			env.getDebug().log(() -> "mayPlace: " + blocks.mayPlace(block, env, pos, dir, itemStack) + " (pos: "
 					+ pos.toString() + ")");
 
 			defaultReturn = curr.getMaterial().isReplaceable()
-					&& VirtualBlock.mayPlace(block, env, pos, dir, itemStack);
+					&& blocks.mayPlace(block, env, pos, dir, itemStack);
 		}
 
 		@SuppressWarnings("deprecation")

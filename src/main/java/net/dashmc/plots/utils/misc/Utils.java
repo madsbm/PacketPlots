@@ -28,6 +28,31 @@ public class Utils {
 		return getChunkKey(pos.getX() >> 4, pos.getZ() >> 4);
 	}
 
+	/**
+	 * @return the index of the position in its chunk section's arrays, such as its
+	 *         block ids
+	 */
+	public static int getSectionIndex(int x, int y, int z) {
+		return (y & 15) << 8 | (z & 15) << 4 | (x & 15);
+	}
+
+	/**
+	 * @param index the index of the block's first byte in a chunk map's data,
+	 *              where a block id takes 2 bytes, low byte first
+	 */
+	public static char getMapBlockId(byte[] data, int index) {
+		return (char) ((data[index] & 255) | (data[index + 1] & 255) << 8);
+	}
+
+	/**
+	 * @param index the index of the block's first byte in a chunk map's data,
+	 *              where a block id takes 2 bytes, low byte first
+	 */
+	public static void setMapBlockId(byte[] data, int index, char blockId) {
+		data[index] = (byte) (blockId & 255);
+		data[index + 1] = (byte) (blockId >> 8 & 255);
+	}
+
 	// coord utils
 	public static Location convertPosToLoc(World world, BlockPosition pos) {
 		CraftWorld craftWorld = world.getWorld();

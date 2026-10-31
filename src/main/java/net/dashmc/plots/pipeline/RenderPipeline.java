@@ -10,6 +10,7 @@ import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.plot.data.VirtualChunk.Section;
+import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.ChunkSection;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 
@@ -79,10 +80,8 @@ public class RenderPipeline {
 			section = iterator.next();
 			char[] idArray = section.getBlockIds();
 
-			for (int l = 0; l < idArray.length; l++) {
-				char c0 = idArray[l];
-				chunkMap.a[j++] = (byte) (c0 & 255);
-				chunkMap.a[j++] = (byte) (c0 >> 8 & 255);
+			for (int l = 0; l < idArray.length; l++, j += 2) {
+				Utils.setMapBlockId(chunkMap.a, j, idArray[l]);
 			}
 		}
 

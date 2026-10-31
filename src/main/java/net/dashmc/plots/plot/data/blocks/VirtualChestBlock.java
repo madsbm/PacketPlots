@@ -282,9 +282,4 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 		return environment.getType(blockposition.up()).getBlock().isOccluding();
 	}
 
-	@Override
-	public Class<BlockChest> getClazz() {
-		return BlockChest.class;
-	}
-
 }

@@ -5,7 +5,9 @@ import java.util.UUID;
 
 import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.plot.data.BlockBag;
+import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.utils.CuboidRegion;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityHuman;
 import net.minecraft.server.v1_8_R3.TileEntity;
@@ -23,6 +25,16 @@ public interface IEnvironment extends IVirtualWorld, IRenderSource {
 	 * @return what calls the events of what happens in the environment
 	 */
 	EventDispatcher getEvents();
+
+	/**
+	 * @return how the environment's blocks behave
+	 */
+	VirtualBlockRegistry getBlockHandlers();
+
+	/**
+	 * @return where to log what happens in the environment, when debugging
+	 */
+	Debug getDebug();
 
 	void addViewer(VirtualConnection connection);
 

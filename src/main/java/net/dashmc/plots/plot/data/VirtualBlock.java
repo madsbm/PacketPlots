@@ -4,15 +4,6 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 import net.dashmc.plots.plot.IEnvironment;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockAir;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockDoor;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockLeaves2;
-import net.dashmc.plots.plot.data.blocks.VirtualBlockTrapDoor;
-import net.dashmc.plots.plot.data.blocks.VirtualChestBlock;
-import net.dashmc.plots.plot.data.blocks.VirtualEnderChestBlock;
-import net.dashmc.plots.plot.data.blocks.VirtualFenceGateBlock;
-import net.dashmc.plots.plot.data.blocks.VirtualSkullBlock;
-import net.dashmc.plots.utils.helpers.ClassRegistry;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -26,20 +17,10 @@ import net.minecraft.server.v1_8_R3.TileEntity;
 
 /**
  * How a block behaves in a virtual environment. The defaults do what vanilla
- * does, so a block only needs a handler where it differs.
+ * does, so a block only needs a handler where it differs. Registered for its
+ * class of block in a VirtualBlockRegistry.
  */
 public abstract class VirtualBlock<T extends Block> {
-	private static final ClassRegistry<VirtualBlock<?>> virtualBlocks = new ClassRegistry<>();
-
-	/**
-	 * The handler of blocks without one of their own.
-	 */
-	private static final VirtualBlock<Block> DEFAULT = new VirtualBlock<Block>() {
-		@Override
-		public Class<Block> getClazz() {
-			return Block.class;
-		}
-	};
 
 	public boolean interact(T block, IEnvironment environment, BlockPosition blockposition,
 			IBlockData iblockdata, EntityHuman entityhuman, EnumDirection enumdirection, float f, float f1, float f2) {
@@ -126,82 +107,6 @@ public abstract class VirtualBlock<T extends Block> {
 	}
 
 	public void postBreak(T block, IEnvironment environment, BlockPosition blockposition, IBlockData iblockdata) {
-	}
-
-	public abstract Class<T> getClazz();
-
-	public void register() {
-		virtualBlocks.register(getClazz(), this);
-	}
-
-	/**
-	 * @return the handler of the block's class, or else of its closest superclass
-	 *         with one, or else the default
-	 */
-	@SuppressWarnings("unchecked")
-	private static VirtualBlock<Block> handlerOf(Block block) {
-		// the handler is for the block's class or a superclass of it, so it takes the
-		// block
-		VirtualBlock<Block> handler = (VirtualBlock<Block>) virtualBlocks.get(block.getClass());
-		return handler != null ? handler : DEFAULT;
-	}
-
-	public static final void notify(Block block, IEnvironment env, BlockPosition pos, BlockBag bag,
-			IBlockData newBlockData) {
-		handlerOf(block).onRelatedUpdated(block, env, pos, bag, newBlockData);
-	}
-
-	public static final AxisAlignedBB getBoundingBox(Block block, IEnvironment env, BlockPosition pos,
-			IBlockData state) {
-		return handlerOf(block).getCollisionBoundingBox(block, env, pos, state);
-	}
-
-	public static final boolean interact(IEnvironment environment, BlockPosition blockposition,
-			IBlockData iblockdata, EntityHuman entityhuman, EnumDirection enumdirection, float f, float f1, float f2) {
-		Block block = iblockdata.getBlock();
-		return handlerOf(block).interact(block, environment, blockposition, iblockdata, entityhuman, enumdirection,
-				f, f1, f2);
-	}
-
-	public static final void harvestBlock(Block block, IBlockData data, IEnvironment environment,
-			BlockPosition pos, BlockBag bag, TileEntity tile) {
-		handlerOf(block).onBlockHarvested(block, environment, pos, data, bag, tile);
-	}
-
-	public static final boolean shouldRemainAt(Block block, IEnvironment env, BlockPosition position) {
-		return handlerOf(block).shouldRemainAt(env, position);
-	}
-
-	public static final boolean mayPlace(Block toPlace, IEnvironment environment, BlockPosition pos,
-			EnumDirection direction, ItemStack itemStack) {
-		return handlerOf(toPlace).canPlace(toPlace, environment, pos, direction, itemStack);
-	}
-
-	public static final void postPlace(Block placedBlock, IEnvironment environment, BlockPosition pos,
-			IBlockData blockData, EntityHuman entityHuman, ItemStack itemStack) {
-		handlerOf(placedBlock).postPlace(placedBlock, environment, pos, blockData, (EntityLiving) entityHuman,
-				itemStack);
-	}
-
-	public static final void remove(IEnvironment environment, BlockPosition blockposition, IBlockData iblockdata) {
-		Block block = iblockdata.getBlock();
-		handlerOf(block).remove(block, environment, blockposition, iblockdata);
-	}
-
-	public static final void onPlace(IEnvironment environment, BlockPosition blockposition, IBlockData iblockdata) {
-		Block block = iblockdata.getBlock();
-		handlerOf(block).onPlace(block, environment, blockposition, iblockdata);
-	}
-
-	static {
-		new VirtualBlockAir().register();
-		new VirtualChestBlock().register();
-		new VirtualBlockDoor().register();
-		new VirtualEnderChestBlock().register();
-		new VirtualFenceGateBlock().register();
-		new VirtualSkullBlock().register();
-		new VirtualBlockLeaves2().register();
-		new VirtualBlockTrapDoor().register();
 	}
 
 }

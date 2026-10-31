@@ -20,11 +20,13 @@ import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.Items;
 
 public class VirtualBlockTest {
+	private static final VirtualBlockRegistry blockHandlers = new VirtualBlockRegistry();
 
 	@BeforeClass
 	public static void bootstrap() {
 		// registers the blocks and items, like the server does on startup
 		DispenserRegistry.c();
+		BuiltinHandlers.registerBlocks(blockHandlers);
 	}
 
 	/**
@@ -32,9 +34,9 @@ public class VirtualBlockTest {
 	 *         their block bag
 	 */
 	private static List<ItemStack> harvest(Block block, int legacyData) {
-		FakeEnvironment env = new FakeEnvironment();
+		FakeEnvironment env = new FakeEnvironment(blockHandlers);
 		IBlockData data = block.fromLegacyData(legacyData);
-		VirtualBlock.harvestBlock(block, data, env, new BlockPosition(0, 64, 0), env.getBlockBag(), null);
+		blockHandlers.harvestBlock(block, data, env, new BlockPosition(0, 64, 0), env.getBlockBag(), null);
 
 		List<ItemStack> received = new ArrayList<>();
 		for (ItemStack stack : env.getOwnerInventory().items)

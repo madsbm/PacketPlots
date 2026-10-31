@@ -1,22 +1,18 @@
 package net.dashmc.plots.compatibility;
 
-import org.bukkit.plugin.Plugin;
-
-import net.dashmc.plots.utils.CuboidRegion;
-
-public abstract class CompatibilityLoader {
-	public final CompatibilityLoader INSTANCE;
-
-	public CompatibilityLoader() {
-		this.INSTANCE = this;
-	}
-
-	public abstract boolean shouldActivate();
+/**
+ * Makes PacketPlots work with another plugin, e.g. an anticheat that would
+ * otherwise flag players in the virtualized region. Registered with
+ * PluginCompatibility, which activates it if the plugin is installed.
+ */
+public interface CompatibilityLoader {
+	/**
+	 * @return whether the plugin it's for is installed
+	 */
+	boolean shouldActivate();
 
 	/**
-	 * @param plugin           the plugin to register listeners for
-	 * @param acDisabledRegion where anticheats are disabled
-	 * @param forced           whether it's activated even if it shouldn't be
+	 * Called once, e.g. to register listeners.
 	 */
-	public abstract void activate(Plugin plugin, CuboidRegion acDisabledRegion, boolean forced);
+	void activate();
 }

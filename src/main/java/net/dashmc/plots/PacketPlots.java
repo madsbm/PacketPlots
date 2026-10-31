@@ -5,8 +5,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -24,15 +24,39 @@ import eu.okaeri.validator.policy.NullPolicy;
 import lombok.Getter;
 import net.dashmc.plots.commands.PlotCommand;
 import net.dashmc.plots.compatibility.PluginCompatibility;
+import net.dashmc.plots.compatibility.compatibilities.ChunkMapSendCompatibility;
+import net.dashmc.plots.compatibility.compatibilities.HDBCompatibility;
+import net.dashmc.plots.compatibility.compatibilities.NCPCompatibility;
+import net.dashmc.plots.compatibility.compatibilities.VulcanCompatibility;
 import net.dashmc.plots.config.PlotConfig;
 import net.dashmc.plots.config.serializers.BlockPositionSerializer;
 import net.dashmc.plots.config.serializers.CuboidRegionSerializer;
 import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.listeners.ConnectionListener;
-import net.dashmc.plots.packets.PacketInterceptor;
+import net.dashmc.plots.packets.InterceptorRegistry;
+import net.dashmc.plots.packets.PacketInjector;
+import net.dashmc.plots.packets.interceptors.BlockDigPacketInterceptor;
+import net.dashmc.plots.packets.interceptors.BlockPlacementPacketInterceptor;
+import net.dashmc.plots.packets.interceptors.ChunkPacketRenderer;
+import net.dashmc.plots.packets.interceptors.MapChunkBulkPacketInterceptor;
+import net.dashmc.plots.packets.interceptors.MapChunkPacketInterceptor;
+import net.dashmc.plots.packets.interceptors.MovementPacketInterceptor;
+import net.dashmc.plots.packets.interceptors.WindowClosePacketInterceptor;
+import net.dashmc.plots.plot.EnvironmentContext;
 import net.dashmc.plots.plot.EnvironmentManager;
+import net.dashmc.plots.plot.EnvironmentStore;
+import net.dashmc.plots.plot.data.BuiltinHandlers;
+import net.dashmc.plots.plot.data.VirtualBlockRegistry;
+import net.dashmc.plots.plot.data.VirtualItemRegistry;
+import net.dashmc.plots.plot.interaction.InteractionHandler;
 import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.misc.Debug;
+import net.minecraft.server.v1_8_R3.PacketPlayInBlockDig;
+import net.minecraft.server.v1_8_R3.PacketPlayInBlockPlace;
+import net.minecraft.server.v1_8_R3.PacketPlayInCloseWindow;
+import net.minecraft.server.v1_8_R3.PacketPlayInFlying;
+import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk;
+import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunkBulk;
 
 public class PacketPlots extends JavaPlugin {
 
@@ -45,6 +69,8 @@ public class PacketPlots extends JavaPlugin {
 	private @Getter static PacketPlots instance;
 	private @Getter static PlotConfig plotConfig;
 	private @Getter static EnvironmentManager environmentManager;
+	// other plugins may register and load compatibilities of their own
+	private @Getter static PluginCompatibility compatibility;
 
 	@Override
 	public void onEnable() {
@@ -63,21 +89,82 @@ public class PacketPlots extends JavaPlugin {
 		});
 
 		plotConfig.validate();
-		Debug.setEnabled(plotConfig.isDebug());
+		Debug debug = new Debug(getLogger(), plotConfig.isDebug());
 
-		Debug.log(() -> "Found config file... virtualizing region " + plotConfig.getRegion() + " with chunks "
+		debug.log(() -> "Found config file... virtualizing region " + plotConfig.getRegion() + " with chunks "
 				+ Arrays.toString(plotConfig.getRegion().getChunks()));
 
 		EventDispatcher events = getServer().getPluginManager()::callEvent;
 		Executor mainThread = task -> getServer().getScheduler().runTask(this, task);
 		CuboidRegion acDisabledRegion = plotConfig.getDefaultedACRegion();
 
-		environmentManager = new EnvironmentManager(new File(this.getDataFolder(), "data"), plotConfig,
-				getDescription().getVersion(), events);
+		compatibility = loadCompatibility(acDisabledRegion, debug);
+
+		VirtualBlockRegistry blockHandlers = new VirtualBlockRegistry();
+		BuiltinHandlers.registerBlocks(blockHandlers);
+		VirtualItemRegistry itemHandlers = new VirtualItemRegistry();
+		BuiltinHandlers.registerItems(itemHandlers);
+
+		InterceptorRegistry interceptors = registerInterceptors(new InteractionHandler(itemHandlers), mainThread,
+				acDisabledRegion);
+
+		EnvironmentContext context = new EnvironmentContext(events, blockHandlers, debug);
+		EnvironmentStore store = new EnvironmentStore(new File(this.getDataFolder(), "data"),
+				getDescription().getVersion(), getServer()::getWorld, context, getLogger());
+		environmentManager = new EnvironmentManager(store, plotConfig, context,
+				new PacketInjector(interceptors, getLogger()),
+				compatibility.isActive(ChunkMapSendCompatibility.class));
 
 		ConnectionListener connectionListener = ConnectionListener.register(this, environmentManager);
-		PacketInterceptor.register(acDisabledRegion, mainThread);
+		registerCommands();
 
+		// players don't join again after a reload, so load the ones already online
+		for (Player player : getServer().getOnlinePlayers()) {
+			connectionListener.join(player);
+		}
+
+		errored = false;
+	}
+
+	/**
+	 * Activates the compatibilities with the installed plugins.
+	 *
+	 * @param acDisabledRegion where anticheats are disabled
+	 */
+	private PluginCompatibility loadCompatibility(CuboidRegion acDisabledRegion, Debug debug) {
+		PluginCompatibility compat = new PluginCompatibility(debug);
+		compat.register(new VulcanCompatibility(this, acDisabledRegion, getLogger(), debug));
+		compat.register(new ChunkMapSendCompatibility(this));
+		compat.register(new HDBCompatibility(this, getLogger()));
+		compat.register(new NCPCompatibility(this, acDisabledRegion));
+		compat.load();
+
+		debug.log(() -> "Loaded compatibilities: " + compat.getActive().stream()
+				.map(active -> active.getClass().getSimpleName()).collect(Collectors.toList()));
+		return compat;
+	}
+
+	/**
+	 * @param mainThread       runs tasks on the server's main thread
+	 * @param acDisabledRegion where anticheats are disabled
+	 */
+	private InterceptorRegistry registerInterceptors(InteractionHandler interactions, Executor mainThread,
+			CuboidRegion acDisabledRegion) {
+		ChunkPacketRenderer chunkRenderer = new ChunkPacketRenderer(mainThread, getLogger());
+
+		InterceptorRegistry interceptors = new InterceptorRegistry();
+		interceptors.register(PacketPlayOutMapChunkBulk.class, new MapChunkBulkPacketInterceptor(chunkRenderer));
+		interceptors.register(PacketPlayOutMapChunk.class, new MapChunkPacketInterceptor(chunkRenderer));
+		interceptors.register(PacketPlayInBlockDig.class, new BlockDigPacketInterceptor(interactions));
+		interceptors.register(PacketPlayInBlockPlace.class, new BlockPlacementPacketInterceptor(interactions));
+		interceptors.register(PacketPlayInCloseWindow.class, new WindowClosePacketInterceptor(getLogger()));
+		// also gets the look, position and position-look packets, which subclass
+		// PacketPlayInFlying
+		interceptors.register(PacketPlayInFlying.class, new MovementPacketInterceptor(acDisabledRegion));
+		return interceptors;
+	}
+
+	private void registerCommands() {
 		commands = CommandsBukkit.of(this);
 
 		// injects the registered commands
@@ -96,17 +183,6 @@ public class PacketPlots extends JavaPlugin {
 		injector.registerInjectable("environments", environmentManager);
 
 		commands.registerCommand(PlotCommand.class);
-
-		PluginCompatibility.load(this, acDisabledRegion);
-		Debug.log(() -> "Loaded compatibilities: "
-				+ Arrays.toString(PluginCompatibility.getCompatibilities().toArray()));
-
-		// players don't join again after a reload, so load the ones already online
-		for (Player player : getServer().getOnlinePlayers()) {
-			connectionListener.join(player);
-		}
-
-		errored = false;
 	}
 
 	protected boolean canUseBrigadierPaper() {
@@ -131,11 +207,6 @@ public class PacketPlots extends JavaPlugin {
 
 		// also removes everything the plugin added to players, so a reload starts clean
 		environmentManager.unloadAll();
-	}
-
-	@Override
-	public FileConfiguration getConfig() {
-		throw new UnsupportedOperationException();
 	}
 
 }

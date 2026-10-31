@@ -2,8 +2,6 @@ package net.dashmc.plots.utils;
 
 import org.bukkit.Location;
 import lombok.Getter;
-import net.dashmc.plots.plot.data.VirtualChunk;
-import net.dashmc.plots.plot.data.VirtualChunk.Section;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
@@ -90,20 +88,21 @@ public class CuboidRegion {
 
 	/**
 	 * Iterate over each location inside of both the cuboid region and the given
-	 * chunk
-	 * 
+	 * chunk section
+	 *
+	 * @param chunkX   the chunk x of the section
+	 * @param chunkY   the section's index in its chunk, from 0 at the bottom
+	 * @param chunkZ   the chunk z of the section
 	 * @param consumer Consumes x,y,z coordinate of location
 	 */
-	public void forEachInside(Section section, CoordinateConsumer consumer) {
-		VirtualChunk chunk = section.getVirtualChunk();
-
-		int chunkMinX = chunk.getCoordPair().x << 4;
+	public void forEachInSection(int chunkX, int chunkY, int chunkZ, CoordinateConsumer consumer) {
+		int chunkMinX = chunkX << 4;
 		int chunkMaxX = chunkMinX + 15;
 
-		int sectionMinY = section.getChunkY() << 4;
+		int sectionMinY = chunkY << 4;
 		int sectionMaxY = sectionMinY + 15;
 
-		int chunkMinZ = chunk.getCoordPair().z << 4;
+		int chunkMinZ = chunkZ << 4;
 		int chunkMaxZ = chunkMinZ + 15;
 
 		int minX = Math.max(getMinX(), chunkMinX);

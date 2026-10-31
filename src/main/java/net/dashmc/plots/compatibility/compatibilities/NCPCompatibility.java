@@ -1,6 +1,5 @@
 package net.dashmc.plots.compatibility.compatibilities;
 
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -13,15 +12,19 @@ import net.dashmc.plots.events.ACRegionEnterExit;
 import net.dashmc.plots.utils.CuboidRegion;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 
-public class NCPCompatibility extends CompatibilityLoader {
+@RequiredArgsConstructor
+public class NCPCompatibility implements CompatibilityLoader {
+	private final Plugin plugin;
+	// where anticheats are disabled
+	private final CuboidRegion acDisabledRegion;
 
 	@Override
 	public boolean shouldActivate() {
-		return Bukkit.getPluginManager().getPlugin("NoCheatPlus") != null;
+		return plugin.getServer().getPluginManager().getPlugin("NoCheatPlus") != null;
 	}
 
 	@Override
-	public void activate(Plugin plugin, CuboidRegion acDisabledRegion, boolean forced) {
+	public void activate() {
 		plugin.getServer().getPluginManager().registerEvents(new EnvironmentListener(acDisabledRegion), plugin);
 	}
 

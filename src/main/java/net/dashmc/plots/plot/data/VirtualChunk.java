@@ -1,65 +1,79 @@
 package net.dashmc.plots.plot.data;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
 import org.apache.commons.lang.NotImplementedException;
-import org.bukkit.Bukkit;
 import lombok.Getter;
-import net.dashmc.plots.data.IDataHolder;
 import net.dashmc.plots.plot.IEnvironment;
-import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.helpers.FieldAccess;
-import net.dashmc.plots.utils.helpers.NBTHelper;
 import net.dashmc.plots.utils.misc.Debug;
+import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockContainer;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.Chunk;
 import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
-import net.minecraft.server.v1_8_R3.ChunkProviderServer;
 import net.minecraft.server.v1_8_R3.ChunkSection;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.IBlockData;
 import net.minecraft.server.v1_8_R3.IContainer;
 import net.minecraft.server.v1_8_R3.IInventory;
-import net.minecraft.server.v1_8_R3.NBTReadLimiter;
-import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import net.minecraft.server.v1_8_R3.Packet;
 import net.minecraft.server.v1_8_R3.TileEntity;
 import net.minecraft.server.v1_8_R3.World;
 import net.minecraft.server.v1_8_R3.WorldServer;
 import net.minecraft.server.v1_8_R3.Chunk.EnumTileEntityState;
 
-public class VirtualChunk implements IDataHolder {
+/**
+ * A chunk's part of an environment: the sections of the chunk the region is in,
+ * which are copied from the real chunk, and their tile entities.
+ */
+public class VirtualChunk {
 	private static final FieldAccess<Integer> nonEmptyBlockCountField = new FieldAccess<>(ChunkSection.class,
 			"nonEmptyBlockCount", int.class);
 
-	private @Getter ChunkCoordIntPair coordPair;
+	private final @Getter ChunkCoordIntPair coordPair;
 
 	private Chunk chunk;
-	private @Getter IEnvironment environment;
-	private World world;
-	private @Getter Section[] sections = new Section[16];
-	private Map<BlockPosition, TileEntity> tileEntities = new HashMap<>();
-	private @Getter char sectionMask = 0;
+	private final @Getter IEnvironment environment;
+	private final World world;
+	private final @Getter Section[] sections = new Section[16];
+	private final Map<BlockPosition, TileEntity> tileEntities = new HashMap<>();
+	private @Getter char sectionMask;
 
-	public VirtualChunk(IEnvironment environment, ChunkCoordIntPair coordPair) {
+	private VirtualChunk(IEnvironment environment, ChunkCoordIntPair coordPair) {
 		this.environment = environment;
 		this.coordPair = coordPair;
 		this.world = environment.getRealWorld();
-
-		WorldServer world = (WorldServer) this.world;
-		this.chunk = world.chunkProviderServer.getChunkAt(coordPair.x, coordPair.z);
-
+		this.chunk = ((WorldServer) world).chunkProviderServer.getChunkAt(coordPair.x, coordPair.z);
 		this.sectionMask = environment.getRegion().getSectionMask();
+	}
+
+	/**
+	 * Copies the chunk's part of the environment's region from the real world,
+	 * leaving out its tile entities.
+	 */
+	public static VirtualChunk copyOf(IEnvironment environment, ChunkCoordIntPair coordPair) {
+		VirtualChunk virtualChunk = new VirtualChunk(environment, coordPair);
+		virtualChunk.copyRealSections();
+		return virtualChunk;
+	}
+
+	/**
+	 * Creates the chunk without sections, for EnvironmentStore to restore the
+	 * saved ones into.
+	 */
+	public static VirtualChunk withoutSections(IEnvironment environment, ChunkCoordIntPair coordPair) {
+		return new VirtualChunk(environment, coordPair);
+	}
+
+	private void copyRealSections() {
 		ChunkSection[] real = chunk.getSections();
 		for (byte i = 0; i < 16; i++) {
 			if ((sectionMask & 1 << i) == 0)
@@ -68,18 +82,22 @@ public class VirtualChunk implements IDataHolder {
 			sections[i] = real[i] != null ? new Section(real[i]) : new Section(i);
 		}
 
-		Debug.log(() -> "vChunk sections: " + Arrays.toString(chunk.getSections()));
-		Debug.log(() -> "tiles: " + chunk.getTileEntities());
+		Debug debug = environment.getDebug();
+		debug.log(() -> "vChunk sections: " + Arrays.toString(chunk.getSections()));
+		debug.log(() -> "tiles: " + chunk.getTileEntities());
 
-		for (Map.Entry<BlockPosition, TileEntity> entry : chunk.getTileEntities().entrySet()) {
-			setBlock(entry.getKey(), Blocks.AIR.getBlockData());
+		// tile entities outside the region stay, as setBlock leaves them be
+		for (BlockPosition pos : chunk.getTileEntities().keySet()) {
+			setBlock(pos, Blocks.AIR.getBlockData());
 		}
 	}
 
-	public VirtualChunk(IEnvironment environment, DataInputStream stream) throws IOException {
-		this.environment = environment;
-		this.world = environment.getRealWorld();
-		deserialize(stream);
+	/**
+	 * Puts a section of the save file in the chunk.
+	 */
+	public void restoreSection(byte chunkY, char nonEmptyBlockCount, char[] blockIds) {
+		sections[chunkY] = new Section(chunkY, nonEmptyBlockCount, blockIds);
+		sectionMask |= 1 << chunkY;
 	}
 
 	public boolean isSectionSet(byte sectionIndex) {
@@ -94,16 +112,16 @@ public class VirtualChunk implements IDataHolder {
 		return this.chunk;
 	}
 
+	/**
+	 * @return whether the block changed, which it doesn't outside the environment
+	 */
 	public boolean setBlock(BlockPosition pos, IBlockData blockData) {
 		byte relX = (byte) (pos.getX() & 15);
 		byte relZ = (byte) (pos.getZ() & 15);
 		byte yPos = (byte) (pos.getY() >> 4);
 
-		if (!environment.contains(pos)) {
-			Bukkit.getLogger().warning(
-					"setBlock called on VirtualChunk even though the reference position was not in the virtualized chunk.");
+		if (!environment.contains(pos))
 			return false;
-		}
 
 		IBlockData currentBlock = getBlockData(pos);
 		if (currentBlock == blockData)
@@ -126,7 +144,7 @@ public class VirtualChunk implements IDataHolder {
 		// like block1.remove(this.world, pos, currentBlock), which for a container
 		// also removes its tile entity
 		if (currBlock != newBlock) {
-			VirtualBlock.remove(environment, pos, currentBlock);
+			environment.getBlockHandlers().remove(environment, pos, currentBlock);
 
 			if (currBlock instanceof IContainer)
 				removeTileEntity(pos);
@@ -142,7 +160,7 @@ public class VirtualChunk implements IDataHolder {
 		}
 
 		if (currBlock != newBlock && newBlock instanceof BlockContainer) {
-			VirtualBlock.onPlace(environment, pos, blockData);
+			environment.getBlockHandlers().onPlace(environment, pos, blockData);
 		}
 
 		if (newBlock instanceof IContainer) {
@@ -160,7 +178,7 @@ public class VirtualChunk implements IDataHolder {
 	}
 
 	public void sendTiles(EntityPlayer to) {
-		Debug.log(() -> "sending tiles in chunk to player: " + tileEntities.size());
+		environment.getDebug().log(() -> "sending tiles in chunk to player: " + tileEntities.size());
 		Iterator<TileEntity> tiles = tileEntities.values().iterator();
 		while (tiles.hasNext()) {
 			Packet<?> updatePacket = tiles.next().getUpdatePacket();
@@ -197,67 +215,8 @@ public class VirtualChunk implements IDataHolder {
 			environment.getBlockBag().addAll(((IInventory) tileEntity).getContents());
 	}
 
-	@Override
-	public void deserialize(DataInputStream stream) throws IOException {
-		IEnvironment environment = getEnvironment();
-		this.world = environment.getRealWorld();
-
-		this.coordPair = new ChunkCoordIntPair(stream.readInt(), stream.readInt());
-
-		Debug.log(() -> "Deserializing chunk @ " + coordPair.x + " , " + coordPair.z);
-
-		ChunkProviderServer cps = (ChunkProviderServer) world.N();
-		if (cps.isChunkLoaded(coordPair.x, coordPair.z)) {
-			this.chunk = world.getChunkAt(coordPair.x, coordPair.z);
-		} else {
-
-			this.chunk = cps.getChunkAt(coordPair.x, coordPair.z);
-		}
-
-		this.sectionMask = environment.getRegion().getSectionMask();
-		Debug.log(() -> "Section mask for the chunk: " + Integer.toBinaryString(sectionMask));
-		Debug.log(() -> "Sections for chunk: " + Arrays.toString(chunk.getSections()));
-		for (byte i = 0; i < 16; i++) {
-			if ((sectionMask & (1 << i)) == 0)
-				continue;
-
-			sections[i] = new Section(stream, i);
-		}
-
-		int tiles = stream.readInt();
-		for (int i = 0; i < tiles; i++) {
-			NBTTagCompound compound = NBTHelper.loadPayload(stream, new NBTReadLimiter(2097152L));
-			TileEntity tile = TileEntity.c(compound);
-
-			Debug.log(() -> "Loading tile with NBT " + compound.toString());
-
-			environment.getTileEntities().add(tile);
-			setTileEntity(tile.getPosition(), tile);
-		}
-	}
-
-	@Override
-	public void serialize(DataOutputStream stream) throws IOException {
-		stream.writeInt(coordPair.x);
-		stream.writeInt(coordPair.z);
-		Debug.log(() -> "Serializing chunk @ " + coordPair.x + " , " + coordPair.z);
-
-		for (Section virtualChunkSection : sections) {
-			if (virtualChunkSection == null)
-				continue;
-
-			virtualChunkSection.serialize(stream);
-		}
-
-		stream.writeInt(tileEntities.size());
-		for (TileEntity tile : tileEntities.values()) {
-			NBTTagCompound compound = new NBTTagCompound();
-			tile.b(compound);
-
-			Debug.log(() -> "Saved tile with NBT " + compound.toString());
-
-			NBTHelper.writePayload(stream, compound);
-		}
+	public Collection<TileEntity> getTileEntities() {
+		return Collections.unmodifiableCollection(tileEntities.values());
 	}
 
 	@Override
@@ -312,17 +271,9 @@ public class VirtualChunk implements IDataHolder {
 		return getBlockData(x, pos.getY(), z);
 	}
 
-	/*
-	 * Data structure:
-	 * yPos (1 byte)
-	 * nonEmptyBlockCount (2 bytes)
-	 * 
-	 * array with length 4096:
-	 * - blockId (2 bytes)
-	 */
-	public class Section implements IDataHolder {
+	public class Section {
 		private @Getter byte chunkY;
-		private char nonEmptyBlockCount;
+		private @Getter char nonEmptyBlockCount;
 		private @Getter char[] blockIds = new char[4096];
 
 		public Section(ChunkSection section) {
@@ -335,56 +286,14 @@ public class VirtualChunk implements IDataHolder {
 			this.chunkY = chunkY;
 		}
 
-		public Section(DataInputStream stream, byte chunkY) throws IOException {
+		private Section(byte chunkY, char nonEmptyBlockCount, char[] blockIds) {
 			this.chunkY = chunkY;
-			deserialize(stream);
-		}
-
-		public VirtualChunk getVirtualChunk() {
-			return VirtualChunk.this;
-		}
-
-		@Override
-		public void deserialize(DataInputStream stream) throws IOException {
-			this.nonEmptyBlockCount = stream.readChar();
-			CuboidRegion region = getEnvironment().getRegion();
-
-			ChunkSection real = getChunk().getSections()[chunkY];
-			this.blockIds = real != null ? real.getIdArray().clone() : new char[4096];
-
-			try {
-				region.forEachInside(this, (x, y, z) -> {
-					try {
-						blockIds[(y & 0xF) << 8 | (z & 0xF) << 4 | (x & 0xF)] = stream.readChar();
-					} catch (IOException e) {
-						throw new UncheckedIOException(e);
-					}
-				});
-			} catch (UncheckedIOException e) {
-				throw e.getCause();
-			}
-		}
-
-		@Override
-		public void serialize(DataOutputStream stream) throws IOException {
-			stream.writeChar(this.nonEmptyBlockCount);
-
-			CuboidRegion region = getEnvironment().getRegion();
-			try {
-				region.forEachInside(this, (x, y, z) -> {
-					try {
-						stream.writeChar(blockIds[(y & 0xF) << 8 | (z & 0xF) << 4 | (x & 0xF)]);
-					} catch (IOException e) {
-						throw new UncheckedIOException(e);
-					}
-				});
-			} catch (UncheckedIOException e) {
-				throw e.getCause();
-			}
+			this.nonEmptyBlockCount = nonEmptyBlockCount;
+			this.blockIds = blockIds;
 		}
 
 		public IBlockData getType(byte x, byte y, byte z) {
-			IBlockData ibd = Block.d.a(this.blockIds[y << 8 | z << 4 | x]);
+			IBlockData ibd = Block.d.a(this.blockIds[Utils.getSectionIndex(x, y, z)]);
 			return ibd == null ? Blocks.AIR.getBlockData() : ibd;
 		}
 
@@ -405,7 +314,7 @@ public class VirtualChunk implements IDataHolder {
 			if (newBlock != Blocks.AIR)
 				++this.nonEmptyBlockCount;
 
-			blockIds[y << 8 | z << 4 | x] = (char) Block.d.b(blockData);
+			blockIds[Utils.getSectionIndex(x, y, z)] = (char) Block.d.b(blockData);
 		}
 	}
 }

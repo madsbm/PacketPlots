@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.pipeline.IRenderTransformer;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.CuboidRegion;
+import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.Chunk;
 import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
 import net.minecraft.server.v1_8_R3.ChunkSection;
@@ -17,7 +18,7 @@ public class BackdropAdderTransformer implements IRenderTransformer {
 	private CuboidRegion toExclude = null;
 
 	@Override
-	public void accept(VirtualChunk virtualChunk, ChunkMap chunkMap, Integer metaStartIdx) {
+	public void accept(VirtualChunk virtualChunk, ChunkMap chunkMap, int metaStartIdx) {
 		int mapPointer = 0;
 		ChunkCoordIntPair backdropXZ = backdropChunk.j();
 
@@ -45,13 +46,10 @@ public class BackdropAdderTransformer implements IRenderTransformer {
 						continue;
 				}
 
-				char blockId = (char) ((chunkMap.a[mapPointer] & 0xFF) | ((chunkMap.a[mapPointer + 1] & 0xFF) << 8));
-				if (blockId != (char) 0)
+				if (Utils.getMapBlockId(chunkMap.a, mapPointer) != (char) 0)
 					continue;
 
-				char newBlock = blockIds[sectionPointer];
-				chunkMap.a[mapPointer] = (byte) (newBlock & 255);
-				chunkMap.a[mapPointer + 1] = (byte) ((newBlock >> 8) & 255);
+				Utils.setMapBlockId(chunkMap.a, mapPointer, blockIds[sectionPointer]);
 			}
 		}
 	}

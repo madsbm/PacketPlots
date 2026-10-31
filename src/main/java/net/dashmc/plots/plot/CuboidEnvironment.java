@@ -1,8 +1,5 @@
 package net.dashmc.plots.plot;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -10,7 +7,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
@@ -19,13 +15,12 @@ import com.google.common.collect.Lists;
 
 import lombok.Getter;
 import lombok.Setter;
-import net.dashmc.plots.data.IDataHolder;
 import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.pipeline.RenderPipeline;
 import net.dashmc.plots.pipeline.RenderPipelineFactory;
 import net.dashmc.plots.plot.data.BlockBag;
-import net.dashmc.plots.plot.data.VirtualBlock;
+import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.misc.Debug;
@@ -40,55 +35,76 @@ import net.minecraft.server.v1_8_R3.Material;
 import net.minecraft.server.v1_8_R3.Packet;
 import net.minecraft.server.v1_8_R3.TileEntity;
 
-/*
- * Data structure:
- * player uuid (16 bytes - 2x long)
- * world uid (16 bytes - 2x long)
- *
- * region pos1 (x,y,z 12 bytes - 3x int)
- * region pos2 (x,y,z 12 bytes - 3x int)
- * combined blockdata in sequence z => y => x (so to unpack, loop x => y => z)
+/**
+ * An environment of a cuboid region of a world. Saved and loaded by
+ * EnvironmentStore.
  */
-public class CuboidEnvironment implements IEnvironment, IDataHolder {
+public class CuboidEnvironment implements IEnvironment {
 	private final HashSet<VirtualConnection> connections = new HashSet<>();
-	private HashMap<Long, VirtualChunk> virtualChunks = new HashMap<>();
+	private final HashMap<Long, VirtualChunk> virtualChunks = new HashMap<>();
 	private @Getter final List<TileEntity> tileEntities = Lists.newArrayList();
-	private World world;
-	private net.minecraft.server.v1_8_R3.World nmsWorld;
-	private @Getter UUID ownerUuid;
-	private @Getter CuboidRegion region;
+	private final net.minecraft.server.v1_8_R3.World nmsWorld;
+	private @Getter final UUID ownerUuid;
+	private @Getter final CuboidRegion region;
 	private @Getter @Setter RenderPipeline renderPipeline = RenderPipelineFactory.createEmptyPipeline();
 	private @Getter final BlockBag blockBag;
-	private @Getter final EventDispatcher events;
+	private final EnvironmentContext context;
+
+	private CuboidEnvironment(Player owner, World world, CuboidRegion region, EnvironmentContext context) {
+		this.ownerUuid = owner.getUniqueId();
+		this.context = context;
+		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle().inventory, context.getEvents(),
+				context.getDebug());
+		this.nmsWorld = ((CraftWorld) world).getHandle();
+		this.region = region;
+	}
 
 	/**
 	 * Creates a new environment for the owner, copying the region from the world.
 	 */
-	public CuboidEnvironment(Player owner, World world, CuboidRegion region, EventDispatcher events) {
-		this.ownerUuid = owner.getUniqueId();
-		this.events = events;
-		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle().inventory, events);
-		this.world = world;
-		this.nmsWorld = ((CraftWorld) world).getHandle();
-		this.region = region;
+	public static CuboidEnvironment create(Player owner, World world, CuboidRegion region,
+			EnvironmentContext context) {
+		CuboidEnvironment environment = new CuboidEnvironment(owner, world, region, context);
+		Debug debug = context.getDebug();
 
-		Debug.log(() -> Arrays.toString(region.getChunks()));
+		debug.log(() -> Arrays.toString(region.getChunks()));
 
 		for (ChunkCoordIntPair coord : region.getChunks()) {
-			Debug.log(() -> "creating chunk @ " + coord.toString());
-			VirtualChunk chunk = new VirtualChunk(this, coord);
-			Debug.log(() -> "created chunk " + chunk);
-			virtualChunks.put(Utils.getChunkKey(coord.x, coord.z), chunk);
+			debug.log(() -> "creating chunk @ " + coord.toString());
+			VirtualChunk chunk = VirtualChunk.copyOf(environment, coord);
+			debug.log(() -> "created chunk " + chunk);
+			environment.addChunk(chunk);
 		}
+
+		return environment;
 	}
 
 	/**
-	 * Loads the owner's environment from data written by {@link #serialize}.
+	 * Creates an environment without chunks, for EnvironmentStore to add the saved
+	 * ones to.
 	 */
-	public CuboidEnvironment(Player owner, DataInputStream stream, EventDispatcher events) throws IOException {
-		this.events = events;
-		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle().inventory, events);
-		deserialize(stream);
+	static CuboidEnvironment withoutChunks(Player owner, World world, CuboidRegion region,
+			EnvironmentContext context) {
+		return new CuboidEnvironment(owner, world, region, context);
+	}
+
+	void addChunk(VirtualChunk chunk) {
+		virtualChunks.put(Utils.getChunkKey(chunk.getCoordPair().x, chunk.getCoordPair().z), chunk);
+	}
+
+	@Override
+	public EventDispatcher getEvents() {
+		return context.getEvents();
+	}
+
+	@Override
+	public VirtualBlockRegistry getBlockHandlers() {
+		return context.getBlockHandlers();
+	}
+
+	@Override
+	public Debug getDebug() {
+		return context.getDebug();
 	}
 
 	@Override
@@ -172,34 +188,38 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 	}
 
 	@Override
-	public boolean setBlock(BlockPosition pos, IBlockData blockData, int i) {
+	public boolean setBlock(BlockPosition pos, IBlockData blockData, int flags) {
 		if (!this.contains(pos))
 			return false;
 
 		VirtualChunk chunk = virtualChunks.get(Utils.getChunkKey(pos));
 		boolean succeeded = chunk.setBlock(pos, blockData);
-		if (succeeded) {
+		if (!succeeded)
+			return false;
+
+		if ((flags & NOTIFY_NEIGHBOURS) != 0) {
 			// any blocks removed due to physics will become property of environment owner
-			notify(pos, blockBag);
+			notifyNeighbours(pos, blockBag);
 		}
 
-		return succeeded;
+		if ((flags & SEND_TO_VIEWERS) != 0)
+			broadcast(new VirtualBlockChangePacket(this, pos).getPacket());
+
+		return true;
 	}
 
-	private void notify(BlockPosition pos, BlockBag bag) {
+	private void notifyNeighbours(BlockPosition pos, BlockBag bag) {
 		notifyBlock(pos.west(), bag);
 		notifyBlock(pos.east(), bag);
 		notifyBlock(pos.down(), bag);
 		notifyBlock(pos.up(), bag);
 		notifyBlock(pos.north(), bag);
 		notifyBlock(pos.south(), bag);
-
-		broadcast(new VirtualBlockChangePacket(this, pos).getPacket());
 	}
 
 	private void notifyBlock(BlockPosition pos, BlockBag bag) {
 		IBlockData ibd = getType(pos);
-		VirtualBlock.notify(ibd.getBlock(), this, pos, bag, ibd);
+		getBlockHandlers().onRelatedUpdated(ibd.getBlock(), this, pos, bag, ibd);
 	}
 
 	@Override
@@ -217,61 +237,11 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 	}
 
 	@Override
-	public void deserialize(DataInputStream stream) throws IOException {
-		this.ownerUuid = new UUID(stream.readLong(), stream.readLong());
-		this.world = Bukkit.getWorld(new UUID(stream.readLong(), stream.readLong()));
-		this.nmsWorld = ((CraftWorld) world).getHandle();
-
-		BlockPosition pos1 = new BlockPosition(stream.readInt(), stream.readInt(), stream.readInt());
-		BlockPosition pos2 = new BlockPosition(stream.readInt(), stream.readInt(), stream.readInt());
-		this.region = new CuboidRegion(pos1, pos2);
-
-		int chunks = stream.readInt();
-		for (int i = 0; i < chunks; i++) {
-			VirtualChunk chunk = new VirtualChunk(this, stream);
-			virtualChunks.put(Utils.getChunkKey(chunk.getCoordPair().x, chunk.getCoordPair().z), chunk);
-		}
-
-		Debug.log(() -> "Loaded chunks from save file: " + virtualChunks.size());
-		// TODO: if the loaded region != the saved one, delete blocks and add to block
-		// bag.
-
-		blockBag.deserialize(stream);
-	}
-
-	@Override
 	public void setTileEntity(BlockPosition blockPosition, TileEntity tileEntity) {
 		if (tileEntity != null && !tileEntity.x()) {
 			tileEntities.add(tileEntity);
 			virtualChunks.get(Utils.getChunkKey(blockPosition)).setTileEntity(blockPosition, tileEntity);
 		}
-	}
-
-	@Override
-	public void serialize(DataOutputStream stream) throws IOException {
-		stream.writeLong(ownerUuid.getMostSignificantBits());
-		stream.writeLong(ownerUuid.getLeastSignificantBits());
-
-		stream.writeLong(world.getUID().getMostSignificantBits());
-		stream.writeLong(world.getUID().getLeastSignificantBits());
-
-		BlockPosition pos1 = region.getPos1();
-		stream.writeInt(pos1.getX());
-		stream.writeInt(pos1.getY());
-		stream.writeInt(pos1.getZ());
-
-		BlockPosition pos2 = region.getPos2();
-		stream.writeInt(pos2.getX());
-		stream.writeInt(pos2.getY());
-		stream.writeInt(pos2.getZ());
-
-		stream.writeInt(virtualChunks.size());
-
-		for (VirtualChunk virtualChunk : virtualChunks.values()) {
-			virtualChunk.serialize(stream);
-		}
-
-		blockBag.serialize(stream);
 	}
 
 	// same as World#getBlockPower and World#isEmpty

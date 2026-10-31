@@ -1,25 +1,17 @@
 package net.dashmc.plots.plot.data;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.util.Iterator;
 import java.util.LinkedList;
 
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import net.dashmc.plots.data.IDataHolder;
 import net.dashmc.plots.events.BlockBagUpdatedEvent;
 import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.events.PreBlockBagDepositEvent;
-import net.dashmc.plots.utils.helpers.NBTHelper;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.Item;
 import net.minecraft.server.v1_8_R3.ItemStack;
-import net.minecraft.server.v1_8_R3.NBTReadLimiter;
-import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import net.minecraft.server.v1_8_R3.PlayerInventory;
 
 /**
@@ -29,9 +21,10 @@ import net.minecraft.server.v1_8_R3.PlayerInventory;
  */
 @Getter
 @RequiredArgsConstructor
-public class BlockBag implements IDataHolder {
+public class BlockBag {
 	private final PlayerInventory inventory;
 	private @Getter(AccessLevel.NONE) final EventDispatcher events;
+	private @Getter(AccessLevel.NONE) final Debug debug;
 	private LinkedList<ItemStack> bag = new LinkedList<>();
 
 	/**
@@ -46,7 +39,7 @@ public class BlockBag implements IDataHolder {
 	}
 
 	public void emptyIfPossible() {
-		Debug.log(() -> "size of bag: " + bag.size());
+		debug.log(() -> "size of bag: " + bag.size());
 
 		while (bag.size() > 0) {
 			ItemStack item = bag.peekFirst();
@@ -129,25 +122,11 @@ public class BlockBag implements IDataHolder {
 		add(item, true, true);
 	}
 
-	@Override
-	public void deserialize(DataInputStream stream) throws IOException {
-		int listSize = stream.readInt();
-		for (int i = 0; i < listSize; i++) {
-			NBTTagCompound compound = NBTHelper.loadPayload(stream, new NBTReadLimiter(2097152L));
-			ItemStack item = ItemStack.createStack(compound);
-			bag.addLast(item);
-		}
-	}
-
-	@Override
-	public void serialize(DataOutputStream stream) throws IOException {
-		stream.writeInt(bag.size());
-		Iterator<ItemStack> iterator = bag.iterator();
-		while (iterator.hasNext()) {
-			NBTTagCompound compound = new NBTTagCompound();
-			iterator.next().save(compound);
-			NBTHelper.writePayload(stream, compound);
-		}
-
+	/**
+	 * Puts the item at the end of the bag without calling any events, for the
+	 * items of a save file.
+	 */
+	public void restore(ItemStack item) {
+		bag.addLast(item);
 	}
 }

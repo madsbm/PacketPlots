@@ -5,9 +5,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.commons.io.Charsets;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -21,22 +21,28 @@ import net.dashmc.plots.compatibility.CompatibilityLoader;
 import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.misc.Debug;
 
-public class VulcanCompatibility extends CompatibilityLoader {
+@RequiredArgsConstructor
+public class VulcanCompatibility implements CompatibilityLoader {
+	private final Plugin plugin;
+	// where anticheats are disabled
+	private final CuboidRegion acDisabledRegion;
+	private final Logger logger;
+	private final Debug debug;
 
 	@Override
 	public boolean shouldActivate() {
-		return Bukkit.getPluginManager().getPlugin("Vulcan") != null;
+		return plugin.getServer().getPluginManager().getPlugin("Vulcan") != null;
 	}
 
 	@Override
-	public void activate(Plugin plugin, CuboidRegion acDisabledRegion, boolean forced) {
+	public void activate() {
 		updateVulcanConfig();
 
 		plugin.getServer().getPluginManager().registerEvents(new VulcanFlagListener(acDisabledRegion), plugin);
 	}
 
 	private void updateVulcanConfig() {
-		Plugin vulcan = Bukkit.getPluginManager().getPlugin("Vulcan");
+		Plugin vulcan = plugin.getServer().getPluginManager().getPlugin("Vulcan");
 
 		File confFile = new File(vulcan.getDataFolder(), "config.yml");
 		try (InputStreamReader reader = new InputStreamReader(new FileInputStream(confFile), Charsets.UTF_8)) {
@@ -45,13 +51,13 @@ public class VulcanCompatibility extends CompatibilityLoader {
 
 			Boolean isGhostBlocksEnabled = vulcanConfig.getBoolean("ghost-blocks-fix.enabled");
 			Boolean isAPIEnabled = vulcanConfig.getBoolean("settings.enable-api");
-			Debug.log(() -> "Is ghost blocks enabled? " + isGhostBlocksEnabled);
-			Debug.log(() -> "Is api enabled? " + isAPIEnabled);
+			debug.log(() -> "Is ghost blocks enabled? " + isGhostBlocksEnabled);
+			debug.log(() -> "Is api enabled? " + isAPIEnabled);
 
 			boolean shouldReload = false;
 
 			if (isGhostBlocksEnabled) {
-				Bukkit.getLogger().warning("Ghost blocks fix was enabled... disabling for compatibility...");
+				logger.warning("Ghost blocks fix was enabled... disabling for compatibility...");
 
 				vulcanConfig.set("ghost-blocks-fix.enabled", false);
 				vulcanConfig.save(confFile);
@@ -60,7 +66,7 @@ public class VulcanCompatibility extends CompatibilityLoader {
 			}
 
 			if (!isAPIEnabled) {
-				Bukkit.getLogger().warning("The Vulcan API was disabled... enabling for compatibility...");
+				logger.warning("The Vulcan API was disabled... enabling for compatibility...");
 
 				vulcanConfig.set("settings.enable-api", true);
 				vulcanConfig.save(confFile);
@@ -71,10 +77,10 @@ public class VulcanCompatibility extends CompatibilityLoader {
 			if (!shouldReload)
 				return;
 
-			Bukkit.getLogger().warning("Done! Reloading vulcan...");
-			Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), "vulcan reload");
+			logger.warning("Done! Reloading vulcan...");
+			plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), "vulcan reload");
 		} catch (IOException | InvalidConfigurationException e) {
-			Bukkit.getLogger().log(Level.WARNING, "[PacketPlots] Couldn't update " + confFile
+			logger.log(Level.WARNING, "Couldn't update " + confFile
 					+ ". Set ghost-blocks-fix.enabled to false and settings.enable-api to true by hand.", e);
 		}
 	}

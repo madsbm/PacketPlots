@@ -12,6 +12,25 @@ import net.minecraft.server.v1_8_R3.World;
  * read and change them, and to show the changes to the environment's viewers.
  */
 public interface IVirtualWorld extends IBlockAccess {
+	/**
+	 * A flag of {@link #setBlock}: the neighbouring blocks are updated, e.g. so
+	 * the other half of a broken door breaks too. Vanilla's 1.
+	 */
+	int NOTIFY_NEIGHBOURS = 1;
+
+	/**
+	 * A flag of {@link #setBlock}: the change is sent to the environment's
+	 * viewers. Vanilla's 2.
+	 */
+	int SEND_TO_VIEWERS = 2;
+
+	/**
+	 * Sets the block like World#setTypeAndData, so callers pass the same flags as
+	 * vanilla: 3 for both, 2 to only send the change.
+	 *
+	 * @param flags {@link #NOTIFY_NEIGHBOURS} and {@link #SEND_TO_VIEWERS}
+	 * @return whether the block changed
+	 */
 	boolean setBlock(BlockPosition pos, IBlockData data, int flags);
 
 	boolean contains(BlockPosition pos);

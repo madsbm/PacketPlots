@@ -1,10 +1,8 @@
 package net.dashmc.plots.plot.data.blocks.wrappers;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-
 import lombok.Getter;
 import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.EntityHuman;
 import net.minecraft.server.v1_8_R3.PacketPlayOutBlockAction;
@@ -19,7 +17,7 @@ public class EnderChestTileWrapper extends TileEntityEnderChest {
 		this.environment = env;
 		this.wrapped = src;
 
-		copyFields(src);
+		FieldAccess.copyFields(TileEntityEnderChest.class, src, this);
 	}
 
 	@Override
@@ -47,23 +45,5 @@ public class EnderChestTileWrapper extends TileEntityEnderChest {
 		PacketPlayOutBlockAction chestClosePacket = new PacketPlayOutBlockAction(this.position, Blocks.ENDER_CHEST, 1,
 				0);
 		environment.broadcast(chestClosePacket);
-	}
-
-	private void copyFields(TileEntityEnderChest source) {
-		Class<?> clazz = source.getClass();
-		while (clazz != null) {
-			for (Field field : clazz.getDeclaredFields()) {
-				if (Modifier.isStatic(field.getModifiers()))
-					continue;
-
-				field.setAccessible(true);
-				try {
-					field.set(this, field.get(source));
-				} catch (IllegalAccessException e) {
-					throw new RuntimeException("Failed to copy field: " + field.getName(), e);
-				}
-			}
-			clazz = clazz.getSuperclass();
-		}
 	}
 }

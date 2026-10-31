@@ -2,13 +2,14 @@ package net.dashmc.plots.pipeline.transformers;
 
 import net.dashmc.plots.pipeline.IRenderTransformer;
 import net.dashmc.plots.plot.data.VirtualChunk;
+import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.ChunkSection;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 
 public class BackdropRemoverTransformer implements IRenderTransformer {
 
 	@Override
-	public void accept(VirtualChunk virtualChunk, ChunkMap chunkMap, Integer metaStartIdx) {
+	public void accept(VirtualChunk virtualChunk, ChunkMap chunkMap, int metaStartIdx) {
 		int mapPointer = 0;
 		for (int i = 0; i < 16; i++) {
 			if ((chunkMap.b & (1 << i)) == 0)
@@ -30,12 +31,10 @@ public class BackdropRemoverTransformer implements IRenderTransformer {
 
 			char[] blockIds = section.getIdArray();
 			for (int sectionPointer = 0; sectionPointer < blockIds.length; sectionPointer++, mapPointer += 2) {
-				char blockId = (char) ((chunkMap.a[mapPointer] & 0xFF) | ((chunkMap.a[mapPointer + 1] & 0xFF) << 8));
-				if (blockIds[sectionPointer] != blockId)
+				if (blockIds[sectionPointer] != Utils.getMapBlockId(chunkMap.a, mapPointer))
 					continue;
 
-				chunkMap.a[mapPointer] = 0;
-				chunkMap.a[mapPointer + 1] = 0;
+				Utils.setMapBlockId(chunkMap.a, mapPointer, (char) 0);
 			}
 		}
 	}
