@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import lombok.Getter;
 import lombok.Setter;
 import net.dashmc.plots.data.IDataHolder;
+import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.pipeline.RenderPipeline;
 import net.dashmc.plots.pipeline.RenderPipelineFactory;
@@ -58,13 +59,15 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 	private @Getter CuboidRegion region;
 	private @Getter @Setter RenderPipeline renderPipeline = RenderPipelineFactory.createEmptyPipeline();
 	private @Getter final BlockBag blockBag;
+	private @Getter final EventDispatcher events;
 
 	/**
 	 * Creates a new environment for the owner, copying the region from the world.
 	 */
-	public CuboidEnvironment(Player owner, World world, CuboidRegion region) {
+	public CuboidEnvironment(Player owner, World world, CuboidRegion region, EventDispatcher events) {
 		this.ownerUuid = owner.getUniqueId();
-		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle());
+		this.events = events;
+		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle().inventory, events);
 		this.world = world;
 		this.nmsWorld = ((CraftWorld) world).getHandle();
 		this.region = region;
@@ -82,8 +85,9 @@ public class CuboidEnvironment implements IEnvironment, IDataHolder {
 	/**
 	 * Loads the owner's environment from data written by {@link #serialize}.
 	 */
-	public CuboidEnvironment(Player owner, DataInputStream stream) throws IOException {
-		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle());
+	public CuboidEnvironment(Player owner, DataInputStream stream, EventDispatcher events) throws IOException {
+		this.events = events;
+		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle().inventory, events);
 		deserialize(stream);
 	}
 

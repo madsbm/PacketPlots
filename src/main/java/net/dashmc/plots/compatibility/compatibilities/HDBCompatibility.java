@@ -6,14 +6,15 @@ import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.plugin.Plugin;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import me.arcaniax.hdb.api.DatabaseLoadEvent;
 import me.arcaniax.hdb.api.HeadDatabaseAPI;
-import net.dashmc.plots.PacketPlots;
 import net.dashmc.plots.compatibility.CompatibilityLoader;
 import net.dashmc.plots.events.PreBlockBagDepositEvent;
+import net.dashmc.plots.utils.CuboidRegion;
 import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.Items;
 
@@ -28,13 +29,13 @@ public class HDBCompatibility extends CompatibilityLoader implements Listener {
 	}
 
 	@Override
-	public void activate(boolean forced) {
+	public void activate(Plugin plugin, CuboidRegion acDisabledRegion, boolean forced) {
 		if (this.activated)
 			return;
 		this.activated = true;
 
-		Bukkit.getPluginManager().registerEvents(this, PacketPlots.getInstance());
-		Bukkit.getPluginManager().registerEvents(new BlockBagListener(api), PacketPlots.getInstance());
+		plugin.getServer().getPluginManager().registerEvents(this, plugin);
+		plugin.getServer().getPluginManager().registerEvents(new BlockBagListener(api), plugin);
 	}
 
 	@EventHandler

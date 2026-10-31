@@ -1,6 +1,5 @@
 package net.dashmc.plots.plot.interaction;
 
-import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.Action;
@@ -75,7 +74,7 @@ public class InteractionHandler {
 					cancelledBlock, env);
 			if (cancelledBlock)
 				ev.setUseClickedBlock(Event.Result.DENY);
-			Bukkit.getPluginManager().callEvent(ev);
+			env.getEvents().call(ev);
 
 			if (ev.getUseClickedBlock() == Event.Result.DENY) {
 				handleGateMismatch(env, blockData, human, pos);
@@ -124,7 +123,7 @@ public class InteractionHandler {
 	public void startDestroy(IEnvironment env, EntityPlayer player, BlockPosition pos, EnumDirection dir) {
 		VirtualInteractEvent event = new VirtualInteractEvent(player, Action.LEFT_CLICK_BLOCK, pos, dir,
 				player.inventory.getItemInHand(), false, env);
-		Bukkit.getPluginManager().callEvent(event);
+		env.getEvents().call(event);
 
 		Debug.log(() -> "startDestroy called, is interact event cancelled? " + event.isCancelled());
 
@@ -183,7 +182,7 @@ public class InteractionHandler {
 				Utils.convertPosToLoc(env.getRealWorld(), pos), player.getBukkitEntity(),
 				player.getBukkitEntity().getItemInHand(), env);
 		blockEvent.setInstaBreak(f >= 1.0f);
-		Bukkit.getPluginManager().callEvent(blockEvent);
+		env.getEvents().call(blockEvent);
 
 		if (blockEvent.isCancelled()) {
 			player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
@@ -264,7 +263,7 @@ public class InteractionHandler {
 		IBlockData nmsData = env.getType(pos);
 		Block nmsBlock = nmsData.getBlock();
 
-		Bukkit.getPluginManager().callEvent(ev);
+		env.getEvents().call(ev);
 		TileEntity tile = env.getTileEntity(pos);
 
 		Debug.log(() -> "Is block break event cancelled? " + ev.isCancelled());

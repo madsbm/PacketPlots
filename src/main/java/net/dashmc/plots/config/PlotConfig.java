@@ -14,7 +14,6 @@ import org.bukkit.World;
 import eu.okaeri.configs.OkaeriConfig;
 import eu.okaeri.configs.annotation.Comment;
 import lombok.Getter;
-import net.dashmc.plots.PacketPlots;
 import net.dashmc.plots.utils.CuboidRegion;
 
 @Getter
@@ -70,8 +69,7 @@ public class PlotConfig extends OkaeriConfig {
 				throw new IllegalStateException("Couldn't read config field " + field.getName(), e);
 			}
 
-			Objects.requireNonNull(value, "Field " + field.getName() + " is null in "
-					+ PacketPlots.getInstance().getName() + " configuration!");
+			Objects.requireNonNull(value, "Field " + field.getName() + " is null in the PacketPlots configuration!");
 		}
 	}
 

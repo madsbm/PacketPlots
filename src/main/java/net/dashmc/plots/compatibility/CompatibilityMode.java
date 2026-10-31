@@ -4,11 +4,14 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.bukkit.plugin.Plugin;
+
 import lombok.Getter;
 import net.dashmc.plots.compatibility.compatibilities.ChunkMapSendCompatibility;
 import net.dashmc.plots.compatibility.compatibilities.HDBCompatibility;
 import net.dashmc.plots.compatibility.compatibilities.NCPCompatibility;
 import net.dashmc.plots.compatibility.compatibilities.VulcanCompatibility;
+import net.dashmc.plots.utils.CuboidRegion;
 
 public enum CompatibilityMode {
 	VULCAN(new VulcanCompatibility()),
@@ -33,14 +36,10 @@ public enum CompatibilityMode {
 		return false;
 	}
 
-	public void activate() {
-		activate(false);
-	}
-
-	public void activate(boolean forced) {
+	public void activate(Plugin plugin, CuboidRegion acDisabledRegion, boolean forced) {
 		for (CompatibilityLoader loader : loaders) {
 			if (forced || loader.shouldActivate())
-				loader.activate(forced);
+				loader.activate(plugin, acDisabledRegion, forced);
 		}
 	}
 }

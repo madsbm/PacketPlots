@@ -3,9 +3,9 @@ package net.dashmc.plots;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.concurrent.Executor;
 import java.util.logging.Level;
 
-import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -27,9 +27,11 @@ import net.dashmc.plots.compatibility.PluginCompatibility;
 import net.dashmc.plots.config.PlotConfig;
 import net.dashmc.plots.config.serializers.BlockPositionSerializer;
 import net.dashmc.plots.config.serializers.CuboidRegionSerializer;
+import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.listeners.ConnectionListener;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.EnvironmentManager;
+import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.misc.Debug;
 
 public class PacketPlots extends JavaPlugin {
@@ -37,6 +39,7 @@ public class PacketPlots extends JavaPlugin {
 	private static final boolean BRIGADIER = Boolean
 			.parseBoolean(System.getProperty("okaeri.platform.brigadier", "true"));
 
+	// for other plugins: the plugin itself passes these to the classes that need them
 	private @Getter static boolean errored;
 	private @Getter static Commands commands;
 	private @Getter static PacketPlots instance;
@@ -65,11 +68,15 @@ public class PacketPlots extends JavaPlugin {
 		Debug.log(() -> "Found config file... virtualizing region " + plotConfig.getRegion() + " with chunks "
 				+ Arrays.toString(plotConfig.getRegion().getChunks()));
 
-		environmentManager = new EnvironmentManager(new File(this.getDataFolder(), "data"), plotConfig,
-				getDescription().getVersion());
+		EventDispatcher events = getServer().getPluginManager()::callEvent;
+		Executor mainThread = task -> getServer().getScheduler().runTask(this, task);
+		CuboidRegion acDisabledRegion = plotConfig.getDefaultedACRegion();
 
-		ConnectionListener connectionListener = ConnectionListener.register(environmentManager);
-		PacketInterceptor.register();
+		environmentManager = new EnvironmentManager(new File(this.getDataFolder(), "data"), plotConfig,
+				getDescription().getVersion(), events);
+
+		ConnectionListener connectionListener = ConnectionListener.register(this, environmentManager);
+		PacketInterceptor.register(acDisabledRegion, mainThread);
 
 		commands = CommandsBukkit.of(this);
 
@@ -86,15 +93,16 @@ public class PacketPlots extends JavaPlugin {
 		}
 
 		injector.registerInjectable("commands", commands);
+		injector.registerInjectable("environments", environmentManager);
 
 		commands.registerCommand(PlotCommand.class);
 
-		PluginCompatibility.load();
+		PluginCompatibility.load(this, acDisabledRegion);
 		Debug.log(() -> "Loaded compatibilities: "
 				+ Arrays.toString(PluginCompatibility.getCompatibilities().toArray()));
 
 		// players don't join again after a reload, so load the ones already online
-		for (Player player : Bukkit.getOnlinePlayers()) {
+		for (Player player : getServer().getOnlinePlayers()) {
 			connectionListener.join(player);
 		}
 

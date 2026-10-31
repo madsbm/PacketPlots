@@ -15,9 +15,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 
+import lombok.RequiredArgsConstructor;
 import me.frep.vulcan.api.event.VulcanFlagEvent;
-import net.dashmc.plots.PacketPlots;
 import net.dashmc.plots.compatibility.CompatibilityLoader;
+import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.misc.Debug;
 
 public class VulcanCompatibility extends CompatibilityLoader {
@@ -28,10 +29,10 @@ public class VulcanCompatibility extends CompatibilityLoader {
 	}
 
 	@Override
-	public void activate(boolean forced) {
+	public void activate(Plugin plugin, CuboidRegion acDisabledRegion, boolean forced) {
 		updateVulcanConfig();
 
-		Bukkit.getPluginManager().registerEvents(new VulcanFlagListener(), PacketPlots.getInstance());
+		plugin.getServer().getPluginManager().registerEvents(new VulcanFlagListener(acDisabledRegion), plugin);
 	}
 
 	private void updateVulcanConfig() {
@@ -91,7 +92,9 @@ public class VulcanCompatibility extends CompatibilityLoader {
 		}
 	}
 
+	@RequiredArgsConstructor
 	private static class VulcanFlagListener implements Listener {
+		private final CuboidRegion acDisabledRegion;
 
 		@EventHandler
 		public void onFlag(VulcanFlagEvent ev) {
@@ -101,7 +104,7 @@ public class VulcanCompatibility extends CompatibilityLoader {
 				return;
 
 			Location playerLocation = ev.getPlayer().getLocation();
-			if (!PacketPlots.getPlotConfig().getDefaultedACRegion().includesWithBuffer(playerLocation))
+			if (!acDisabledRegion.includesWithBuffer(playerLocation))
 				return;
 
 			ev.setCancelled(true);

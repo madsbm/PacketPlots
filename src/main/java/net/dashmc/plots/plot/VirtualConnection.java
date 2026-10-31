@@ -1,11 +1,9 @@
 package net.dashmc.plots.plot;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
 import lombok.Getter;
 import lombok.Setter;
-import net.dashmc.plots.PacketPlots;
 import net.dashmc.plots.compatibility.CompatibilityMode;
 import net.dashmc.plots.compatibility.PluginCompatibility;
 import net.dashmc.plots.events.ACRegionEnterExit;
@@ -26,10 +24,11 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 public class VirtualConnection {
 	private @Setter boolean moved = false;
 
-	private VirtualConnection(EntityPlayer player, IEnvironment environment) {
+	private VirtualConnection(EntityPlayer player, IEnvironment environment, Location safeLocation) {
 		this.player = player;
 		this.environment = environment;
 		this.original = environment;
+		this.safeLocation = safeLocation;
 
 		open();
 	}
@@ -39,6 +38,8 @@ public class VirtualConnection {
 	// read by outgoing interceptors on the Netty thread, changed on the main thread
 	private volatile IEnvironment environment;
 	private final IEnvironment original;
+	// where the player is teleported to when they visit another environment
+	private final Location safeLocation;
 	private boolean insideEnvironment;
 	private boolean insideACRegion;
 
@@ -47,7 +48,7 @@ public class VirtualConnection {
 			return;
 
 		insideACRegion = to;
-		Bukkit.getPluginManager().callEvent(new ACRegionEnterExit(this, to));
+		environment.getEvents().call(new ACRegionEnterExit(this, to));
 	}
 
 	public void setInsideEnvironment(boolean to) {
@@ -55,7 +56,7 @@ public class VirtualConnection {
 			return;
 
 		insideEnvironment = to;
-		Bukkit.getPluginManager().callEvent(new EnvironmentEnterExit(this, to));
+		environment.getEvents().call(new EnvironmentEnterExit(this, to));
 	}
 
 	@Setter
@@ -73,7 +74,6 @@ public class VirtualConnection {
 			return null;
 
 		setVisiting(!other.equals(original));
-		Location safeLocation = PacketPlots.getPlotConfig().getSafeLocation();
 		Debug.log(() -> "teleporting player to " + safeLocation);
 		player.getBukkitEntity().teleport(safeLocation);
 
@@ -112,8 +112,9 @@ public class VirtualConnection {
 		});
 	}
 
-	public static VirtualConnection establish(EntityPlayer player, IEnvironment environment) {
-		return new VirtualConnection(player, environment);
+	public static VirtualConnection establish(EntityPlayer player, IEnvironment environment,
+			Location safeLocation) {
+		return new VirtualConnection(player, environment, safeLocation);
 	}
 
 	private void open() {

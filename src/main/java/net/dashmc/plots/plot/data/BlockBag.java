@@ -6,12 +6,12 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedList;
 
-import org.bukkit.Bukkit;
-
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.data.IDataHolder;
 import net.dashmc.plots.events.BlockBagUpdatedEvent;
+import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.events.PreBlockBagDepositEvent;
 import net.dashmc.plots.utils.helpers.NBTHelper;
 import net.dashmc.plots.utils.misc.Debug;
@@ -20,16 +20,26 @@ import net.minecraft.server.v1_8_R3.Item;
 import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.NBTReadLimiter;
 import net.minecraft.server.v1_8_R3.NBTTagCompound;
+import net.minecraft.server.v1_8_R3.PlayerInventory;
 
 /**
  * Items an environment's owner has gotten from it, such as broken blocks. Part
- * of the environment, and saved with it.
+ * of the environment, and saved with it. Items go to the owner's inventory
+ * when there's room.
  */
 @Getter
 @RequiredArgsConstructor
 public class BlockBag implements IDataHolder {
-	private final EntityPlayer player;
+	private final PlayerInventory inventory;
+	private @Getter(AccessLevel.NONE) final EventDispatcher events;
 	private LinkedList<ItemStack> bag = new LinkedList<>();
+
+	/**
+	 * @return the owner, whose inventory the items go to
+	 */
+	public EntityPlayer getPlayer() {
+		return (EntityPlayer) inventory.player;
+	}
 
 	public int size() {
 		return bag.size();
@@ -40,7 +50,7 @@ public class BlockBag implements IDataHolder {
 
 		while (bag.size() > 0) {
 			ItemStack item = bag.peekFirst();
-			boolean hasSpace = player.inventory.pickup(item);
+			boolean hasSpace = inventory.pickup(item);
 
 			if (hasSpace) {
 				bag.removeFirst();
@@ -55,7 +65,7 @@ public class BlockBag implements IDataHolder {
 
 	public void addAll(ItemStack[] items) {
 		PreBlockBagDepositEvent pre = new PreBlockBagDepositEvent(items, this);
-		Bukkit.getPluginManager().callEvent(pre);
+		events.call(pre);
 		if (pre.isCancelled())
 			return;
 
@@ -74,7 +84,7 @@ public class BlockBag implements IDataHolder {
 
 		if (callEvents) {
 			PreBlockBagDepositEvent preUpdateEvent = new PreBlockBagDepositEvent(item, this);
-			Bukkit.getPluginManager().callEvent(preUpdateEvent);
+			events.call(preUpdateEvent);
 			if (preUpdateEvent.isCancelled())
 				return false;
 
@@ -88,7 +98,7 @@ public class BlockBag implements IDataHolder {
 				return false;
 		}
 
-		if (tryAddToPlayerInventory && player.inventory.pickup(item))
+		if (tryAddToPlayerInventory && inventory.pickup(item))
 			return false;
 
 		bag.addLast(item);
@@ -100,7 +110,7 @@ public class BlockBag implements IDataHolder {
 
 	private BlockBagUpdatedEvent callUpdateEvent(boolean isDeposit) {
 		BlockBagUpdatedEvent event = new BlockBagUpdatedEvent(isDeposit, this);
-		Bukkit.getPluginManager().callEvent(event);
+		events.call(event);
 		return event;
 	}
 

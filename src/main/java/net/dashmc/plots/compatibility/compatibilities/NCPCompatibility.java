@@ -4,11 +4,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.plugin.Plugin;
 
 import fr.neatmonster.nocheatplus.hooks.NCPExemptionManager;
-import net.dashmc.plots.PacketPlots;
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.compatibility.CompatibilityLoader;
 import net.dashmc.plots.events.ACRegionEnterExit;
+import net.dashmc.plots.utils.CuboidRegion;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 
 public class NCPCompatibility extends CompatibilityLoader {
@@ -19,16 +21,17 @@ public class NCPCompatibility extends CompatibilityLoader {
 	}
 
 	@Override
-	public void activate(boolean forced) {
-		Bukkit.getPluginManager().registerEvents(new EnvironmentListener(), PacketPlots.getInstance());
+	public void activate(Plugin plugin, CuboidRegion acDisabledRegion, boolean forced) {
+		plugin.getServer().getPluginManager().registerEvents(new EnvironmentListener(acDisabledRegion), plugin);
 	}
 
+	@RequiredArgsConstructor
 	private static class EnvironmentListener implements Listener {
+		private final CuboidRegion acDisabledRegion;
 
 		@EventHandler
 		public void onPlayerJoin(PlayerJoinEvent e) {
-			boolean spawnedInsideRegion = PacketPlots.getPlotConfig().getDefaultedACRegion()
-					.includes(e.getPlayer().getLocation());
+			boolean spawnedInsideRegion = acDisabledRegion.includes(e.getPlayer().getLocation());
 			if (!spawnedInsideRegion)
 				NCPExemptionManager.unexempt(e.getPlayer());
 			else

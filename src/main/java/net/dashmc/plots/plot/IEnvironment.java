@@ -3,6 +3,7 @@ package net.dashmc.plots.plot;
 import java.util.List;
 import java.util.UUID;
 
+import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.plot.data.BlockBag;
 import net.dashmc.plots.utils.CuboidRegion;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -17,6 +18,11 @@ public interface IEnvironment extends IVirtualWorld, IRenderSource {
 	}
 
 	BlockBag getBlockBag();
+
+	/**
+	 * @return what calls the events of what happens in the environment
+	 */
+	EventDispatcher getEvents();
 
 	void addViewer(VirtualConnection connection);
 

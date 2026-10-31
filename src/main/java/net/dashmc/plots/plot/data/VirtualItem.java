@@ -1,6 +1,5 @@
 package net.dashmc.plots.plot.data;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftHumanEntity;
@@ -101,7 +100,7 @@ public abstract class VirtualItem<T extends Item> {
 			Material mat = Material.getMaterial(Block.getId(newBlockData.getBlock()));
 
 			VirtualBlockPlaceEvent ev = new VirtualBlockPlaceEvent((Player) player, bukkitPlacedAt, mat, env);
-			Bukkit.getPluginManager().callEvent(ev);
+			env.getEvents().call(ev);
 
 			if (ev.isCancelled()) {
 				env.setBlock(placedAt, prevBlockData, 3);

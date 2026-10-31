@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import net.dashmc.plots.plot.FakeEnvironment;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
@@ -20,43 +21,36 @@ import net.minecraft.server.v1_8_R3.Items;
 
 public class VirtualBlockTest {
 
-	/**
-	 * Keeps what's added, as the real bag calls Bukkit events.
-	 */
-	private static class RecordingBag extends BlockBag {
-		private final List<ItemStack> added = new ArrayList<>();
-
-		private RecordingBag() {
-			super(null);
-		}
-
-		@Override
-		public void add(ItemStack item) {
-			added.add(item);
-		}
-	}
-
 	@BeforeClass
 	public static void bootstrap() {
 		// registers the blocks and items, like the server does on startup
 		DispenserRegistry.c();
 	}
 
+	/**
+	 * @return what the owner got from breaking the block, in their inventory or
+	 *         their block bag
+	 */
 	private static List<ItemStack> harvest(Block block, int legacyData) {
-		RecordingBag bag = new RecordingBag();
+		FakeEnvironment env = new FakeEnvironment();
 		IBlockData data = block.fromLegacyData(legacyData);
-		// the environment is only needed by blocks with a handler that uses it
-		VirtualBlock.harvestBlock(block, data, null, new BlockPosition(0, 64, 0), bag, null);
-		return bag.added;
+		VirtualBlock.harvestBlock(block, data, env, new BlockPosition(0, 64, 0), env.getBlockBag(), null);
+
+		List<ItemStack> received = new ArrayList<>();
+		for (ItemStack stack : env.getOwnerInventory().items)
+			if (stack != null)
+				received.add(stack);
+		received.addAll(env.getBlockBag().getBag());
+		return received;
 	}
 
 	private static void assertHarvests(Block block, int legacyData, Item item, int count, int itemData) {
-		List<ItemStack> added = harvest(block, legacyData);
+		List<ItemStack> received = harvest(block, legacyData);
 
-		assertEquals(1, added.size());
-		assertEquals(item, added.get(0).getItem());
-		assertEquals(count, added.get(0).count);
-		assertEquals(itemData, added.get(0).getData());
+		assertEquals(1, received.size());
+		assertEquals(item, received.get(0).getItem());
+		assertEquals(count, received.get(0).count);
+		assertEquals(itemData, received.get(0).getData());
 	}
 
 	@Test

@@ -21,6 +21,7 @@ import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
 import net.dashmc.plots.config.PlotConfig;
+import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.player.VirtualPlayerInteractManager;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.misc.Debug;
@@ -40,13 +41,15 @@ public class EnvironmentManager {
 	private final File dataDirectory;
 	private final PlotConfig config;
 	private final String pluginVersion;
+	private final EventDispatcher events;
 	private final HashMap<UUID, CuboidEnvironment> environments = new HashMap<>();
 	private final HashMap<UUID, VirtualConnection> connections = new HashMap<>();
 
-	public EnvironmentManager(File dataDirectory, PlotConfig config, String pluginVersion) {
+	public EnvironmentManager(File dataDirectory, PlotConfig config, String pluginVersion, EventDispatcher events) {
 		this.dataDirectory = dataDirectory;
 		this.config = config;
 		this.pluginVersion = pluginVersion;
+		this.events = events;
 
 		dataDirectory.mkdirs();
 	}
@@ -86,7 +89,7 @@ public class EnvironmentManager {
 			try (DataInputStream dataInputStream = new DataInputStream(
 					new BufferedInputStream(new FileInputStream(dataFile)))) {
 				readVersionCode(dataInputStream);
-				environment = new CuboidEnvironment(player, dataInputStream);
+				environment = new CuboidEnvironment(player, dataInputStream, events);
 			}
 
 			if (!uuid.equals(environment.getOwnerUuid()))
@@ -95,7 +98,7 @@ public class EnvironmentManager {
 		} else {
 			Debug.log(() -> "No save file could be found for " + player.getName());
 
-			environment = new CuboidEnvironment(player, config.getWorld(), config.getRegion());
+			environment = new CuboidEnvironment(player, config.getWorld(), config.getRegion(), events);
 			save(environment);
 		}
 
@@ -163,7 +166,8 @@ public class EnvironmentManager {
 		if (environment == null)
 			return;
 
-		VirtualConnection connection = VirtualConnection.establish(((CraftPlayer) player).getHandle(), environment);
+		VirtualConnection connection = VirtualConnection.establish(((CraftPlayer) player).getHandle(), environment,
+				config.getSafeLocation());
 		connections.put(player.getUniqueId(), connection);
 		environment.addViewer(connection);
 

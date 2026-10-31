@@ -1,6 +1,5 @@
 package net.dashmc.plots.plot.interaction;
 
-import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_8_R3.util.CraftMagicNumbers;
 
 import net.dashmc.plots.events.VirtualBlockCanBuildEvent;
@@ -49,7 +48,7 @@ public class PlacementRules {
 		VirtualBlockCanBuildEvent event = new VirtualBlockCanBuildEvent(defaultReturn,
 				Utils.convertPosToLoc(env.getRealWorld(), pos),
 				org.bukkit.Material.getMaterial(CraftMagicNumbers.getId(curr)), env);
-		Bukkit.getPluginManager().callEvent(event);
+		env.getEvents().call(event);
 
 		return event.isBuildable();
 	}

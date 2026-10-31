@@ -9,9 +9,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.Plugin;
 
 import lombok.RequiredArgsConstructor;
-import net.dashmc.plots.PacketPlots;
 import net.dashmc.plots.plot.EnvironmentManager;
 
 @RequiredArgsConstructor
@@ -41,9 +41,9 @@ public class ConnectionListener implements Listener {
 		}
 	}
 
-	public static ConnectionListener register(EnvironmentManager environments) {
+	public static ConnectionListener register(Plugin plugin, EnvironmentManager environments) {
 		ConnectionListener listener = new ConnectionListener(environments);
-		Bukkit.getPluginManager().registerEvents(listener, PacketPlots.getInstance());
+		plugin.getServer().getPluginManager().registerEvents(listener, plugin);
 		return listener;
 	}
 

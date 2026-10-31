@@ -11,21 +11,30 @@ import eu.okaeri.commands.bukkit.annotation.Permission;
 import eu.okaeri.commands.bukkit.response.BukkitResponse;
 import eu.okaeri.commands.bukkit.response.RawResponse;
 import eu.okaeri.commands.service.CommandService;
-import net.dashmc.plots.PacketPlots;
+import eu.okaeri.injector.annotation.Inject;
+import net.dashmc.plots.plot.EnvironmentManager;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
 
 @eu.okaeri.commands.annotation.Command(label = "plot", description = "Plot command")
 public class PlotCommand implements CommandService {
+	private final EnvironmentManager environments;
+
+	// created by okaeri, which injects the environment manager registered in
+	// PacketPlots#onEnable
+	@Inject
+	public PlotCommand(EnvironmentManager environments) {
+		this.environments = environments;
+	}
 
 	@Permission(value = { "*", "plot.virtualize" })
 	@Completion(arg = "value", value = { "on", "off" })
 	@Executor(pattern = "virtualize *")
 	public BukkitResponse virtualize(@Context Player player, @Arg String value) {
 		if (value.equals("on"))
-			PacketPlots.getEnvironmentManager().startVirtualization(player);
+			environments.startVirtualization(player);
 		else if (value.equals("off"))
-			PacketPlots.getEnvironmentManager().stopVirtualization(player);
+			environments.stopVirtualization(player);
 		else
 			return RawResponse.of("Invalidt argument {arg}. Vælg on eller off.").with("arg", value);
 
@@ -36,7 +45,7 @@ public class PlotCommand implements CommandService {
 	@Executor(pattern = "blockbag *")
 	public BukkitResponse blockBag(@Context Player sender, @Arg String action) {
 		if (action.equals("empty")) {
-			IEnvironment environment = PacketPlots.getEnvironmentManager().get(sender);
+			IEnvironment environment = environments.get(sender);
 			if (environment == null)
 				return RawResponse.of("Dit plot er ikke indlæst, så din block bag kan ikke tømmes.");
 
@@ -56,13 +65,13 @@ public class PlotCommand implements CommandService {
 					.with("name", name);
 		}
 
-		IEnvironment other = PacketPlots.getEnvironmentManager().get(playertoVisit);
+		IEnvironment other = environments.get(playertoVisit);
 		if (other == null)
 			return RawResponse.of("Spilleren {name}s plot er ikke indlæst, og du kan derfor ikke besøge det.")
 					.with("name", name);
 
 		// null after /plot virtualize off
-		VirtualConnection conn = PacketPlots.getEnvironmentManager().getConnection(sender);
+		VirtualConnection conn = environments.getConnection(sender);
 		if (conn == null)
 			return RawResponse.of("Slå virtualisering til med /plot virtualize on, før du besøger et plot.");
 

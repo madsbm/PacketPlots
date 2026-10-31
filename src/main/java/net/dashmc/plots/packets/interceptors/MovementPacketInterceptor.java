@@ -1,12 +1,11 @@
 package net.dashmc.plots.packets.interceptors;
 
 import java.util.Collections;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.util.NumberConversions;
 
-import net.dashmc.plots.PacketPlots;
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.events.VirtualPlayerMoveEvent;
 import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInterceptor;
@@ -18,8 +17,9 @@ import net.minecraft.server.v1_8_R3.PacketPlayInFlying;
 import net.minecraft.server.v1_8_R3.PacketPlayOutPosition;
 import net.minecraft.server.v1_8_R3.PlayerConnection;
 
+@RequiredArgsConstructor
 public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFlying> {
-	private static CuboidRegion acDisabledRegion = PacketPlots.getPlotConfig().getDefaultedACRegion();
+	private final CuboidRegion acDisabledRegion;
 
 	@Override
 	public boolean intercept(PacketPlayInFlying packet, VirtualConnection connection) {
@@ -73,7 +73,7 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 			Location oldTo = to.clone();
 			VirtualPlayerMoveEvent event = new VirtualPlayerMoveEvent(bukkitPlayer, from, oldTo,
 					connection.getEnvironment());
-			Bukkit.getPluginManager().callEvent(event);
+			connection.getEnvironment().getEvents().call(event);
 
 			if (event.isCancelled()) {
 				player.playerConnection.sendPacket(new PacketPlayOutPosition(from.getX(), from.getY(), from.getZ(),
@@ -143,8 +143,8 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 
 	// also gets the look, position and position-look packets, which subclass
 	// PacketPlayInFlying
-	public static void register() {
-		InterceptorRegistry.register(new MovementPacketInterceptor());
+	public static void register(CuboidRegion acDisabledRegion) {
+		InterceptorRegistry.register(new MovementPacketInterceptor(acDisabledRegion));
 	}
 
 }
