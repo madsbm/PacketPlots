@@ -1,7 +1,9 @@
 package net.dashmc.plots.plot;
 
+import java.util.Collection;
 import java.util.UUID;
 
+import net.dashmc.plots.pipeline.RenderPipeline;
 import net.dashmc.plots.plot.data.BlockBag;
 import net.minecraft.server.v1_8_R3.EntityHuman;
 
@@ -22,13 +24,27 @@ public interface IEnvironment extends IVirtualWorld, IRenderSource {
 	 */
 	BlockBag getBlockBag();
 
+	/**
+	 * For other plugins, e.g. with a pipeline of
+	 * net.dashmc.plots.api.pipeline.RenderPipelineFactory. Takes effect for the
+	 * chunks sent from then on.
+	 */
+	void setRenderPipeline(RenderPipeline renderPipeline);
+
+	/**
+	 * @return the connections shown the environment: its owner's, unless they're
+	 *         visiting another, and its visitors'
+	 */
+	Collection<VirtualConnection> getViewers();
+
 	void addViewer(VirtualConnection connection);
 
 	void removeViewer(VirtualConnection connection);
 
 	/**
-	 * Sends the environment's visitors back to their own environments. Use
-	 * {@link EnvironmentManager#unload}, which saves the environment first.
+	 * Lets go of the environment's chunks and viewers. Use
+	 * {@link EnvironmentManager#unload}, which sends its visitors back to their own
+	 * environments and saves it first.
 	 */
 	void close();
 }

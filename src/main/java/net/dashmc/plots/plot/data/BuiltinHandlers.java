@@ -57,10 +57,10 @@ public class BuiltinHandlers {
 		// leaves, anvils and pistons
 		VirtualItemBlock itemBlock = new VirtualItemBlock(blocks, placement, debug);
 		items.register(ItemBlock.class, itemBlock);
-		items.register(ItemDoor.class, new VirtualItemDoor(blocks, placement, debug));
-		items.register(ItemSkull.class, new VirtualItemSkull(blocks));
+		items.register(ItemDoor.class, new VirtualItemDoor(placement, debug));
+		items.register(ItemSkull.class, new VirtualItemSkull(placement));
 		// places a slab like an ItemBlock, unless it makes a double slab
-		items.register(ItemStep.class, new VirtualItemStep(itemBlock));
+		items.register(ItemStep.class, new VirtualItemStep(itemBlock, placement));
 
 		// ItemBlocks the ItemBlock handler would place wrong, so they stay unplaceable:
 		// a banner's color comes from the item, a double plant needs its upper half and

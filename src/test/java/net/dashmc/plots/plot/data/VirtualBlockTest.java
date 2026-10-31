@@ -41,7 +41,8 @@ public class VirtualBlockTest {
 		BlockBag bag = new BlockBag(ownerInventory, event -> {
 		}, Debug.OFF);
 		IBlockData data = block.fromLegacyData(legacyData);
-		blockHandlers.harvestBlock(block, data, new FakeWorld(), new BlockPosition(0, 64, 0), bag, null);
+		blockHandlers.handlerOf(block).onBlockHarvested(block, new FakeWorld(), new BlockPosition(0, 64, 0), data,
+				bag, null);
 
 		List<ItemStack> received = new ArrayList<>();
 		for (ItemStack stack : ownerInventory.items)

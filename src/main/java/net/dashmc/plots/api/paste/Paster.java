@@ -1,4 +1,4 @@
-package net.dashmc.plots.paste;
+package net.dashmc.plots.api.paste;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -7,11 +7,11 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.bukkit.Bukkit;
-import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
 import net.dashmc.plots.nms.NmsBlocks;
 import net.dashmc.plots.nms.NmsChunks;
+import net.dashmc.plots.nms.NmsPlayers;
 import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.nms.NmsWorlds;
 import net.dashmc.plots.packets.extensions.VirtualMapChunkPacket;
@@ -34,6 +34,10 @@ import net.minecraft.server.v1_8_R3.TileEntity;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 import net.minecraft.server.v1_8_R3.WorldServer;
 
+/**
+ * Pastes a virtual chunk into a chunk of the real world, rendered through a
+ * pipeline, so it's there for everyone and saved with the world.
+ */
 public class Paster {
 	private static final NibbleArray fullyLit;
 
@@ -63,7 +67,7 @@ public class Paster {
 
 		// remove tiles in the sections about to be overwritten
 		for (BlockPosition pos : new ArrayList<>(nmsChunk.getTileEntities().keySet())) {
-			if ((sectionMask & 1 << (pos.getY() >> 4)) != 0)
+			if (Utils.hasSection(sectionMask, pos.getY() >> 4))
 				NmsWorlds.removeTileEntity(nmsChunk.getWorld(), pos);
 		}
 
@@ -79,7 +83,7 @@ public class Paster {
 
 			if (idPointer == 4096) {
 				for (; sectionIndex < 16; sectionIndex++) {
-					if ((sectionMask & (1 << sectionIndex)) == 0)
+					if (!Utils.hasSection(sectionMask, sectionIndex))
 						continue;
 					break;
 				}
@@ -104,7 +108,7 @@ public class Paster {
 
 		for (Packet<?> updatePacket : initializeTiles(chunk, nmsChunk)) {
 			for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-				EntityPlayer nmsPlayer = ((CraftPlayer) player).getHandle();
+				EntityPlayer nmsPlayer = NmsPlayers.getHandle(player);
 				nmsPlayer.playerConnection.sendPacket(updatePacket);
 			}
 		}
@@ -130,9 +134,9 @@ public class Paster {
 				if (ibd == null || !ibd.getBlock().isTileEntity())
 					continue;
 
-				int x = idx & 0xF;
-				int y = baseY + ((idx >> 8) & 0xF);
-				int z = (idx >> 4) & 0xF;
+				int x = Utils.getIndexX(idx);
+				int y = baseY + Utils.getIndexY(idx);
+				int z = Utils.getIndexZ(idx);
 
 				TileEntity source = vChunk.getTileEntity(new BlockPosition(srcX + x, y, srcZ + z),
 						EnumTileEntityState.CHECK);

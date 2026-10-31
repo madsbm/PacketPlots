@@ -1,5 +1,8 @@
 package net.dashmc.plots.plot.data.blocks;
 
+import java.util.Arrays;
+import java.util.Collection;
+
 import net.dashmc.plots.nms.NmsBlocks;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.BlockBag;
@@ -25,7 +28,17 @@ public class VirtualBlockDoor extends VirtualOpenableBlock<BlockDoor> {
 	// the lower half keeps whether the door is open
 	@Override
 	protected BlockPosition getStatePosition(BlockPosition pos, IBlockData data) {
-		return data.get(BlockDoor.HALF) == BlockDoor.EnumDoorHalf.LOWER ? pos : pos.down();
+		return isLowerHalf(data) ? pos : pos.down();
+	}
+
+	// the client opens or closes both halves
+	@Override
+	public Collection<BlockPosition> getPredictedPositions(BlockDoor block, BlockPosition pos, IBlockData data) {
+		return Arrays.asList(pos, isLowerHalf(data) ? pos.up() : pos.down());
+	}
+
+	private static boolean isLowerHalf(IBlockData data) {
+		return data.get(BlockDoor.HALF) == BlockDoor.EnumDoorHalf.LOWER;
 	}
 
 	@Override
@@ -36,14 +49,14 @@ public class VirtualBlockDoor extends VirtualOpenableBlock<BlockDoor> {
 			IBlockData door = env.getType(lower);
 
 			if (door.getBlock() != block) {
-				env.setBlock(pos, Blocks.AIR.getBlockData(), 3);
+				env.setBlock(pos, Blocks.AIR.getBlockData(), IVirtualWorld.NOTIFY_AND_SEND);
 			}
 		} else {
 			BlockPosition upper = pos.up();
 			IBlockData door = env.getType(upper);
 
 			if (door.getBlock() != block) {
-				env.setBlock(pos, Blocks.AIR.getBlockData(), 3);
+				env.setBlock(pos, Blocks.AIR.getBlockData(), IVirtualWorld.NOTIFY_AND_SEND);
 				bag.add(block.getDropType(newBlockData, null, 0));
 			}
 		}

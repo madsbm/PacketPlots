@@ -26,25 +26,19 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 	private final Debug debug;
 
 	@Override
-	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
+	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition clicked,
 			EnumDirection direction, float cX, float cY, float cZ, boolean isBorderPlace) {
-		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
-		Block block = ibd.getBlock();
-
-		if (!blocks.shouldRemainAt(block, environment, pos))
-			pos = pos.shift(direction);
-		else if (isBorderPlace)
+		BlockPosition pos = placement.getPlacementPosition(environment, clicked, direction, isBorderPlace);
+		if (pos == null)
 			return false;
 
 		Block toPlace = ((ItemBlock) item.getItem()).d();
-		// not lazy, as pos is reassigned above
-		debug.log(
-				"Trying to place at " + pos.toString() + " ( " + toPlace.toString() + " on " + block.toString() + " )");
+		debug.log(() -> "Trying to place " + toPlace + " at " + pos + " (clicked " + clicked + ")");
 
 		if (item.count == 0)
 			return false;
 
-		if (!PlacementRules.canPlace(environment, pos, direction, item, player))
+		if (!placement.canPlace(environment, pos, direction, item, player))
 			return false;
 
 		if (!placement.isBuildable(environment, toPlace, pos, false, direction, player, item))
@@ -52,13 +46,13 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 
 		int data = item.getItem().filterData(item.getData());
 		IBlockData placedBlockData = toPlace.getPlacedState(null, pos, direction, cX, cY, cZ, data, player);
-		if (!environment.setBlock(pos, placedBlockData, 3))
+		if (!environment.setBlock(pos, placedBlockData, IVirtualWorld.NOTIFY_AND_SEND))
 			return false;
 
 		IBlockData blockData = environment.getType(pos);
 		if (blockData.getBlock() == toPlace) {
 			initializeBlock(environment, pos, item);
-			blocks.postPlace(toPlace, environment, pos, blockData, player, item);
+			blocks.handlerOf(toPlace).postPlace(toPlace, environment, pos, blockData, player, item);
 		}
 		item.count--;
 

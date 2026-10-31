@@ -31,6 +31,30 @@ public class Utils {
 	}
 
 	/**
+	 * @return the x of the index in its chunk section, from 0 to 15, the opposite
+	 *         of {@link #getSectionIndex}
+	 */
+	public static int getIndexX(int index) {
+		return index & 15;
+	}
+
+	public static int getIndexY(int index) {
+		return index >> 8 & 15;
+	}
+
+	public static int getIndexZ(int index) {
+		return index >> 4 & 15;
+	}
+
+	/**
+	 * @param mask a bit for each section of a chunk, from the bottom, like a
+	 *             chunk map's
+	 */
+	public static boolean hasSection(int mask, int chunkY) {
+		return (mask & 1 << chunkY) != 0;
+	}
+
+	/**
 	 * @param index the index of the block's first byte in a chunk map's data,
 	 *              where a block id takes 2 bytes, low byte first
 	 */

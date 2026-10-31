@@ -18,6 +18,7 @@ import net.dashmc.plots.nms.NmsPlayers;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.player.VirtualPlayerInteractManager;
 import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualItem;
@@ -26,8 +27,6 @@ import net.dashmc.plots.utils.misc.Debug;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockCommand;
-import net.minecraft.server.v1_8_R3.BlockContainer;
-import net.minecraft.server.v1_8_R3.BlockDoor;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.EntityHuman;
@@ -63,7 +62,7 @@ public class InteractionHandler {
 		IBlockData blockData = isBorderPlace ? env.getRealWorld().getType(pos) : env.getType(pos);
 
 		if (!env.isOwner(human)) {
-			handleGateMismatch(env, blockData, human, pos);
+			resyncPredicted(env, blockData, human, pos);
 			return false;
 		}
 
@@ -94,12 +93,13 @@ public class InteractionHandler {
 			events.call(ev);
 
 			if (ev.getUseClickedBlock() == Event.Result.DENY) {
-				handleGateMismatch(env, blockData, human, pos);
+				resyncPredicted(env, blockData, human, pos);
 				result = ev.getUseItemInHand() != Event.Result.ALLOW;
 			} else if (gameMode == GameMode.SPECTATOR) {
 				// TODO: implement
 			} else if (!human.isSneaking() || item == null) {
-				result = blocks.interact(env, pos, blockData, human, dir, cX, cY, cZ);
+				Block block = blockData.getBlock();
+				result = blocks.handlerOf(block).interact(block, env, pos, blockData, human, dir, cX, cY, cZ);
 			}
 
 			debug.log(() -> "Item is: " + item);
@@ -156,16 +156,12 @@ public class InteractionHandler {
 			events.call(ev);
 
 			if (ev.isCancelled()) {
-				env.setBlock(placedAt, prevBlockData, 3);
+				env.setBlock(placedAt, prevBlockData, IVirtualWorld.NOTIFY_AND_SEND);
 				return false;
 			} else {
 				if (itemStack.count == count && itemStack.getData() == data) {
 					itemStack.setData(newData);
 					itemStack.count = newCount;
-				}
-
-				if (!(newBlockData.getBlock() instanceof BlockContainer)) {
-					blocks.onPlace(env, placedAt, newBlockData);
 				}
 
 				if (newBlockData.getBlock() instanceof IContainer)
@@ -177,16 +173,14 @@ public class InteractionHandler {
 		return flag;
 	}
 
-	private void handleGateMismatch(IEnvironment env, IBlockData ibd, EntityHuman entity, BlockPosition pos) {
-		EntityPlayer player = (EntityPlayer) entity;
-
-		if (ibd.getBlock() instanceof BlockDoor) {
-			boolean bottom = ibd.get(BlockDoor.HALF) == BlockDoor.EnumDoorHalf.LOWER;
-
-			VirtualBlockChangePacket.resync(player, env, pos);
-			VirtualBlockChangePacket.resync(player, env, bottom ? pos.up() : pos.down());
-		} else if (ibd.getBlock() == Blocks.TRAPDOOR) {
-			VirtualBlockChangePacket.resync(player, env, pos);
+	/**
+	 * Sends the player what their client changed when it predicted them using the
+	 * block, for when the use was refused.
+	 */
+	private void resyncPredicted(IEnvironment env, IBlockData data, EntityHuman human, BlockPosition pos) {
+		Block block = data.getBlock();
+		for (BlockPosition predicted : blocks.handlerOf(block).getPredictedPositions(block, pos, data)) {
+			VirtualBlockChangePacket.resync((EntityPlayer) human, env, predicted);
 		}
 	}
 
@@ -227,7 +221,7 @@ public class InteractionHandler {
 		float f = 1f;
 
 		if (event.getUseClickedBlock() == Event.Result.DENY) {
-			handleGateMismatch(env, env.getType(pos), player, pos);
+			resyncPredicted(env, env.getType(pos), player, pos);
 		} else if (block.getMaterial() != Material.AIR) {
 			// block.attack(nmsWorld, pos, player);
 			f = block.getDamage(player, env.getRealWorld(), pos);
@@ -345,18 +339,12 @@ public class InteractionHandler {
 		if (nmsBlock == Blocks.AIR)
 			return false;
 
-		if (nmsBlock == Blocks.SKULL && !player.playerInteractManager.isCreative()) {
-			blocks.harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
-
-			return env.setBlock(pos, Blocks.AIR.getBlockData(), 3);
-		}
-
 		if (!mayBreak(player, nmsBlock))
 			return false;
 
 		env.broadcast(new PacketPlayOutWorldEvent(2001, pos, Block.getCombinedId(nmsData), false));
 
-		boolean couldSet = env.setBlock(pos, Blocks.AIR.getBlockData(), 3);
+		boolean couldSet = env.setBlock(pos, Blocks.AIR.getBlockData(), IVirtualWorld.NOTIFY_AND_SEND);
 
 		if (player.playerInteractManager.isCreative())
 			VirtualBlockChangePacket.resync(player, env, pos);
@@ -371,8 +359,9 @@ public class InteractionHandler {
 			}
 
 			if (flag && couldSet) {
-				// nmsBlock.a(nmsWorld, player, pos, nmsData, tile);
-				blocks.harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
+				// the tile entity was taken before the block was removed, so handlers like
+				// the skull's still get what was in it
+				blocks.handlerOf(nmsBlock).onBlockHarvested(nmsBlock, env, pos, nmsData, env.getBlockBag(), tile);
 			}
 		}
 

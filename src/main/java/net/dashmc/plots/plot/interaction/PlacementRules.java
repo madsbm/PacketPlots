@@ -8,6 +8,7 @@ import net.dashmc.plots.events.VirtualBlockCanBuildEvent;
 import net.dashmc.plots.nms.NmsItems;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.IVirtualWorld;
+import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.utils.misc.Debug;
 import net.dashmc.plots.utils.misc.Utils;
@@ -18,6 +19,7 @@ import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.Entity;
 import net.minecraft.server.v1_8_R3.EntityHuman;
 import net.minecraft.server.v1_8_R3.EnumDirection;
+import net.minecraft.server.v1_8_R3.IBlockData;
 import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.Material;
 
@@ -35,8 +37,9 @@ public class PlacementRules {
 	public boolean isBuildable(IEnvironment env, Block block, BlockPosition pos, boolean ignoreCollision,
 			EnumDirection dir, Entity entity, ItemStack itemStack) {
 		Block curr = env.getType(pos).getBlock();
+		VirtualBlock<Block> handler = blocks.handlerOf(block);
 		AxisAlignedBB bb = ignoreCollision ? null
-				: blocks.getBoundingBox(block, env, pos, block.getBlockData());
+				: handler.getCollisionBoundingBox(block, env, pos, block.getBlockData());
 
 		final boolean defaultReturn;
 		if (bb != null && !isNoOtherEntitiesInside(bb, entity)) {
@@ -44,12 +47,11 @@ public class PlacementRules {
 		} else if (curr.getMaterial() == Material.ORIENTABLE && block == Blocks.ANVIL) {
 			defaultReturn = true;
 		} else {
+			boolean mayPlace = handler.canPlace(block, env, pos, dir, itemStack);
 			debug.log(() -> "isReplaceable: " + curr.getMaterial().isReplaceable());
-			debug.log(() -> "mayPlace: " + blocks.mayPlace(block, env, pos, dir, itemStack) + " (pos: "
-					+ pos.toString() + ")");
+			debug.log(() -> "mayPlace: " + mayPlace + " (pos: " + pos.toString() + ")");
 
-			defaultReturn = curr.getMaterial().isReplaceable()
-					&& blocks.mayPlace(block, env, pos, dir, itemStack);
+			defaultReturn = curr.getMaterial().isReplaceable() && mayPlace;
 		}
 
 		@SuppressWarnings("deprecation")
@@ -61,7 +63,30 @@ public class PlacementRules {
 		return event.isBuildable();
 	}
 
-	public static boolean canPlace(IVirtualWorld world, BlockPosition pos, EnumDirection dir, ItemStack itemStack,
+	/**
+	 * Where an item clicked on a block places its block: in front of the clicked
+	 * face, unless the clicked block stays where it is, like air. When the clicked
+	 * block is just outside the environment, it's read from the real world.
+	 *
+	 * @param isBorderPlace whether the clicked block is outside the environment,
+	 *                      next to it
+	 * @return the position, or null if the item can't place a block there
+	 */
+	public BlockPosition getPlacementPosition(IVirtualWorld env, BlockPosition clicked, EnumDirection dir,
+			boolean isBorderPlace) {
+		IBlockData data = isBorderPlace ? env.getRealWorld().getType(clicked) : env.getType(clicked);
+		Block block = data.getBlock();
+		if (!blocks.handlerOf(block).shouldRemainAt(env, clicked))
+			return clicked.shift(dir);
+
+		return isBorderPlace ? null : clicked;
+	}
+
+	/**
+	 * @return whether the player's game mode and item let them place a block
+	 *         against the one behind the position, e.g. in adventure mode
+	 */
+	public boolean canPlace(IVirtualWorld world, BlockPosition pos, EnumDirection dir, ItemStack itemStack,
 			EntityHuman player) {
 		if (player.abilities.mayBuild)
 			return true;

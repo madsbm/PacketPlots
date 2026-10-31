@@ -1,4 +1,4 @@
-package net.dashmc.plots.pipeline.transformers;
+package net.dashmc.plots.api.pipeline.transformers;
 
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ public class BackdropAdderTransformer implements IRenderTransformer {
 
 		for (int i = 0; i < 16; i++) {
 			ChunkSection section = backdropChunk.getSections()[i];
-			if ((sectionMask & (1 << i)) == 0)
+			if (!Utils.hasSection(sectionMask, i))
 				continue;
 			else if ((section == null)) {
 				mapPointer += 4096 * 2;
@@ -40,9 +40,9 @@ public class BackdropAdderTransformer implements IRenderTransformer {
 					int shortIdx = mapPointer >> 1;
 
 					// dont apply the offset here as the region isnt offset!
-					int x = (shortIdx & 0xF) + (backdropXZ.x << 4);
-					int y = ((shortIdx >> 8) & 0xF) + (i << 4);
-					int z = ((shortIdx >> 4) & 0xF) + (backdropXZ.z << 4);
+					int x = Utils.getIndexX(shortIdx) + (backdropXZ.x << 4);
+					int y = Utils.getIndexY(shortIdx) + (i << 4);
+					int z = Utils.getIndexZ(shortIdx) + (backdropXZ.z << 4);
 
 					boolean includes = toExclude.includes(x, y, z);
 					if (includes)

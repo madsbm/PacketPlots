@@ -16,11 +16,18 @@ import net.minecraft.server.v1_8_R3.TileEntitySkull;
 
 public class VirtualSkullBlock extends VirtualBlock<BlockSkull> {
 
+	// the skull's type and owner are in its tile entity, which is gone from the
+	// environment by now
 	@Override
 	public void onBlockHarvested(BlockSkull block, IVirtualWorld environment, BlockPosition pos, IBlockData data,
 			BlockBag bag, TileEntity tile) {
-		ItemStack skullItem = new ItemStack(Items.SKULL, 1, getDropData(environment, pos));
-		TileEntitySkull skullTile = (TileEntitySkull) environment.getTileEntity(pos);
+		if (!(tile instanceof TileEntitySkull)) {
+			bag.add(new ItemStack(Items.SKULL, 1, getDropData(data)));
+			return;
+		}
+
+		TileEntitySkull skullTile = (TileEntitySkull) tile;
+		ItemStack skullItem = new ItemStack(Items.SKULL, 1, skullTile.getSkullType());
 		if (skullTile.getSkullType() == 3 && skullTile.getGameProfile() != null) {
 			skullItem.setTag(new NBTTagCompound());
 			NBTTagCompound compound = new NBTTagCompound();

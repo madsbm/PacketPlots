@@ -1,10 +1,12 @@
 package net.dashmc.plots.packets;
 
+import java.util.concurrent.Executor;
 import java.util.logging.Logger;
 
 import io.netty.channel.Channel;
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.plot.VirtualConnection;
+import net.dashmc.plots.plot.interaction.ChestCloser;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 
 /**
@@ -16,11 +18,15 @@ public class PacketInjector {
 	private static final String NETTY_PIPELINE_NAME = "Environment";
 
 	private final InterceptorRegistry interceptors;
+	// runs the intercepted incoming packets on the main thread, in order with the
+	// rest
+	private final Executor packetQueue;
+	private final ChestCloser chests;
 	private final Logger logger;
 
 	public void inject(VirtualConnection connection) {
 		Channel channel = connection.getPlayer().playerConnection.networkManager.channel;
-		PacketHandler handler = new PacketHandler(connection, interceptors, logger);
+		PacketHandler handler = new PacketHandler(connection, interceptors, packetQueue, chests, logger);
 
 		// a handler left behind, e.g. by a reload, is replaced rather than kept, as it
 		// belongs to a connection that's no longer open

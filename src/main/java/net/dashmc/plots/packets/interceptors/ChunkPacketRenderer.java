@@ -5,7 +5,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import lombok.RequiredArgsConstructor;
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IRenderSource;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.misc.Debug;
@@ -30,7 +30,7 @@ public class ChunkPacketRenderer {
 	 *         isn't virtualized, or it failed to render
 	 */
 	public ChunkMap render(VirtualConnection conn, int chunkX, int chunkZ) {
-		IEnvironment env = conn.getEnvironment();
+		IRenderSource env = conn.getEnvironment();
 
 		// null if the chunk isn't virtualized, or the environment closed or changed
 		// while the packet was on its way

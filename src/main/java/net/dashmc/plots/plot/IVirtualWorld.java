@@ -25,10 +25,15 @@ public interface IVirtualWorld extends IBlockAccess {
 	int SEND_TO_VIEWERS = 2;
 
 	/**
-	 * Sets the block like World#setTypeAndData, so callers pass the same flags as
-	 * vanilla: 3 for both, 2 to only send the change.
+	 * Both flags of {@link #setBlock}, which is what most changes want. Vanilla's 3.
+	 */
+	int NOTIFY_AND_SEND = NOTIFY_NEIGHBOURS | SEND_TO_VIEWERS;
+
+	/**
+	 * Sets the block like World#setTypeAndData, which takes the same flags.
 	 *
-	 * @param flags {@link #NOTIFY_NEIGHBOURS} and {@link #SEND_TO_VIEWERS}
+	 * @param flags {@link #NOTIFY_NEIGHBOURS} and {@link #SEND_TO_VIEWERS}, or
+	 *              {@link #NOTIFY_AND_SEND} for both
 	 * @return whether the block changed
 	 */
 	boolean setBlock(BlockPosition pos, IBlockData data, int flags);

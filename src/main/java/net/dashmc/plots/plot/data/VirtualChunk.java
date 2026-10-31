@@ -74,7 +74,7 @@ public class VirtualChunk {
 	private void copyRealSections(CuboidRegion region) {
 		ChunkSection[] real = chunk.getSections();
 		for (byte i = 0; i < 16; i++) {
-			if ((sectionMask & 1 << i) == 0)
+			if (!Utils.hasSection(sectionMask, i))
 				continue;
 
 			sections[i] = real[i] != null ? new Section(real[i]) : new Section(i);
@@ -95,8 +95,9 @@ public class VirtualChunk {
 		sectionMask |= 1 << chunkY;
 	}
 
+	// for other plugins
 	public boolean isSectionSet(byte sectionIndex) {
-		return (sectionMask & (1 << sectionIndex)) > 0;
+		return Utils.hasSection(sectionMask, sectionIndex);
 	}
 
 	public Chunk getChunk() {
@@ -206,6 +207,7 @@ public class VirtualChunk {
 		return tileEntity;
 	}
 
+	// for other plugins
 	public int getBlockAsLegacyData(BlockPosition blockposition) {
 		IBlockData blockData = getBlockData(blockposition);
 		return blockData.getBlock().toLegacyData(blockData);

@@ -26,6 +26,9 @@ public class ConnectionFactory {
 	private final Debug debug;
 
 	public VirtualConnection establish(EntityPlayer player, IEnvironment environment) {
-		return new VirtualConnection(player, environment, safeLocation, packets, forceChunkMapSend, events, debug);
+		VirtualConnection connection = new VirtualConnection(player, environment, safeLocation, packets,
+				forceChunkMapSend, events, debug);
+		connection.open();
+		return connection;
 	}
 }

@@ -2,7 +2,7 @@ package net.dashmc.plots.packets.extensions;
 
 import lombok.Getter;
 import net.dashmc.plots.packets.IPacketExtension;
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
@@ -17,7 +17,7 @@ public class VirtualBlockChangePacket implements IPacketExtension<PacketPlayOutB
 	@Getter
 	private final PacketPlayOutBlockChange packet;
 
-	public VirtualBlockChangePacket(IEnvironment env, BlockPosition pos) {
+	public VirtualBlockChangePacket(IVirtualWorld env, BlockPosition pos) {
 		packet = new PacketPlayOutBlockChange();
 		packet.block = env.getType(pos);
 		posField.set(packet, pos);
@@ -28,7 +28,7 @@ public class VirtualBlockChangePacket implements IPacketExtension<PacketPlayOutB
 	 * environment, e.g. to undo what their client predicted when the server
 	 * refused it.
 	 */
-	public static void resync(EntityPlayer player, IEnvironment env, BlockPosition pos) {
+	public static void resync(EntityPlayer player, IVirtualWorld env, BlockPosition pos) {
 		player.playerConnection.sendPacket(new VirtualBlockChangePacket(env, pos).getPacket());
 
 		TileEntity tile = env.getTileEntity(pos);

@@ -1,7 +1,14 @@
-package net.dashmc.plots.pipeline;
+package net.dashmc.plots.api.pipeline;
 
 import java.util.LinkedList;
 
+import net.dashmc.plots.pipeline.IRenderTransformer;
+import net.dashmc.plots.pipeline.RenderPipeline;
+
+/**
+ * Builds a RenderPipeline from transformers, e.g. those of
+ * net.dashmc.plots.api.pipeline.transformers, for IEnvironment#setRenderPipeline.
+ */
 public class RenderPipelineFactory {
 	private LinkedList<IRenderTransformer> transformers = new LinkedList<>();
 

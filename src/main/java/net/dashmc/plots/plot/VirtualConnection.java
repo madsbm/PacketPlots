@@ -25,22 +25,6 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
  */
 @Getter
 public class VirtualConnection {
-	private @Setter boolean moved = false;
-
-	VirtualConnection(EntityPlayer player, IEnvironment environment, Location safeLocation,
-			PacketInjector packets, boolean forceChunkMapSend, EventDispatcher events, Debug debug) {
-		this.player = player;
-		this.environment = environment;
-		this.original = environment;
-		this.safeLocation = safeLocation;
-		this.packets = packets;
-		this.forceChunkMapSend = forceChunkMapSend;
-		this.events = events;
-		this.debug = debug;
-
-		open();
-	}
-
 	private volatile boolean injected;
 	private final EntityPlayer player;
 	// read by outgoing interceptors on the Netty thread, changed on the main thread
@@ -57,6 +41,20 @@ public class VirtualConnection {
 	private VirtualPlayerInteractManager interactManager;
 	private boolean insideEnvironment;
 	private boolean insideACRegion;
+	private @Setter boolean moved = false;
+	private @Setter boolean isVisiting = false;
+
+	VirtualConnection(EntityPlayer player, IEnvironment environment, Location safeLocation,
+			PacketInjector packets, boolean forceChunkMapSend, EventDispatcher events, Debug debug) {
+		this.player = player;
+		this.environment = environment;
+		this.original = environment;
+		this.safeLocation = safeLocation;
+		this.packets = packets;
+		this.forceChunkMapSend = forceChunkMapSend;
+		this.events = events;
+		this.debug = debug;
+	}
 
 	public void setInsideACRegion(boolean to) {
 		if (to == insideACRegion)
@@ -74,36 +72,23 @@ public class VirtualConnection {
 		events.call(new EnvironmentEnterExit(this, to));
 	}
 
-	@Setter
-	private boolean isVisiting = false;
-
 	/**
-	 * Internal method that doesnt touch the environments. this is to prevent a
-	 * ConcurrentModificationException when e.g. closing a virtual environment.
-	 *
-	 * @param other
-	 * @return the new environment, if any.
+	 * Shows the player the other environment in place of the one they see,
+	 * teleporting them to the safe location.
 	 */
-	protected IEnvironment visitLocally(IEnvironment other) {
-		if (other.equals(environment))
-			return null;
-
-		setVisiting(!other.equals(original));
-		debug.log(() -> "teleporting player to " + safeLocation);
-		player.getBukkitEntity().teleport(safeLocation);
-
-		this.environment = other;
-		refreshVirtualizedChunks();
-		return other;
-	}
-
 	public void visit(IEnvironment other) {
 		if (other.equals(environment))
 			return;
 
 		environment.removeViewer(this);
 		other.addViewer(this);
-		visitLocally(other);
+		setVisiting(!other.equals(original));
+
+		debug.log(() -> "teleporting player to " + safeLocation);
+		player.getBukkitEntity().teleport(safeLocation);
+
+		this.environment = other;
+		refreshVirtualizedChunks();
 	}
 
 	public PacketPlayOutMapChunk getRenderPacket(VirtualChunk vChunk) {
@@ -127,7 +112,11 @@ public class VirtualConnection {
 		});
 	}
 
-	private void open() {
+	/**
+	 * Gives the player their packet handler and VirtualPlayerInteractManager.
+	 * Called by ConnectionFactory once the connection is made.
+	 */
+	void open() {
 		packets.inject(this);
 		this.interactManager = VirtualPlayerInteractManager.inject(this);
 		this.injected = true;

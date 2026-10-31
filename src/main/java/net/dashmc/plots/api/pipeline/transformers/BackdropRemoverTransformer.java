@@ -1,4 +1,4 @@
-package net.dashmc.plots.pipeline.transformers;
+package net.dashmc.plots.api.pipeline.transformers;
 
 import net.dashmc.plots.nms.NmsChunks;
 import net.dashmc.plots.pipeline.IRenderTransformer;
@@ -15,9 +15,9 @@ public class BackdropRemoverTransformer implements IRenderTransformer {
 		int sectionMask = NmsChunks.getSectionMask(chunkMap);
 		int mapPointer = 0;
 		for (int i = 0; i < 16; i++) {
-			if ((sectionMask & (1 << i)) == 0)
+			if (!Utils.hasSection(sectionMask, i))
 				continue;
-			if ((virtualChunk.getSectionMask() & (1 << i)) == 0) {
+			if (!Utils.hasSection(virtualChunk.getSectionMask(), i)) {
 				final int newPointer = mapPointer + 4096 * 2;
 				for (; mapPointer < newPointer; mapPointer++) {
 					data[mapPointer] = 0;

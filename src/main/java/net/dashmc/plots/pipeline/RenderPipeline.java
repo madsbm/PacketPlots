@@ -55,9 +55,9 @@ public class RenderPipeline {
 		int sectionMask = 0;
 		int j;
 		for (j = 0; j < sections.length; j++) {
-			if ((chunk.getSectionMask() & 1 << j) != 0) {
+			if (Utils.hasSection(chunk.getSectionMask(), j)) {
 				Section section = sections[j];
-				if (section != null && !section.isEmpty() && (mask & 1 << j) != 0) {
+				if (section != null && !section.isEmpty() && Utils.hasSection(mask, j)) {
 					sectionMask |= 1 << j;
 					arraylist.add(section);
 				}
@@ -66,7 +66,7 @@ public class RenderPipeline {
 				if (chunkSection == null)
 					continue;
 				Section section = chunk.new Section(chunkSection);
-				if (!section.isEmpty() && (mask & 1 << j) != 0) {
+				if (!section.isEmpty() && Utils.hasSection(mask, j)) {
 					sectionMask |= 1 << j;
 					arraylist.add(section);
 				}

@@ -8,16 +8,15 @@ import java.util.HashSet;
 import java.util.UUID;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
-import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
 import lombok.Getter;
 import lombok.Setter;
 import net.dashmc.plots.nms.NmsBlocks;
+import net.dashmc.plots.nms.NmsPlayers;
 import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.pipeline.RenderPipeline;
-import net.dashmc.plots.pipeline.RenderPipelineFactory;
 import net.dashmc.plots.plot.data.BlockBag;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualChunk;
@@ -25,7 +24,6 @@ import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.misc.Debug;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.Block;
-import net.minecraft.server.v1_8_R3.BlockContainer;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.Chunk.EnumTileEntityState;
@@ -48,15 +46,15 @@ public class CuboidEnvironment implements IEnvironment {
 	private final net.minecraft.server.v1_8_R3.World nmsWorld;
 	private @Getter final UUID ownerUuid;
 	private @Getter final CuboidRegion region;
-	private @Getter @Setter RenderPipeline renderPipeline = RenderPipelineFactory.createEmptyPipeline();
+	// read by outgoing interceptors on the Netty thread, set by other plugins
+	private volatile @Getter @Setter RenderPipeline renderPipeline = new RenderPipeline();
 	private @Getter final BlockBag blockBag;
 	private final EnvironmentContext context;
 
 	private CuboidEnvironment(Player owner, World world, CuboidRegion region, EnvironmentContext context) {
 		this.ownerUuid = owner.getUniqueId();
 		this.context = context;
-		this.blockBag = new BlockBag(((CraftPlayer) owner).getHandle().inventory, context.getEvents(),
-				context.getDebug());
+		this.blockBag = new BlockBag(NmsPlayers.getHandle(owner).inventory, context.getEvents(), context.getDebug());
 		this.nmsWorld = ((CraftWorld) world).getHandle();
 		this.region = region;
 	}
@@ -107,6 +105,11 @@ public class CuboidEnvironment implements IEnvironment {
 	}
 
 	@Override
+	public Collection<VirtualConnection> getViewers() {
+		return Collections.unmodifiableCollection(connections);
+	}
+
+	@Override
 	public void addViewer(VirtualConnection connection) {
 		connections.add(connection);
 	}
@@ -118,16 +121,6 @@ public class CuboidEnvironment implements IEnvironment {
 
 	@Override
 	public void close() {
-		for (VirtualConnection conn : connections) {
-			if (conn.getOriginal() == this)
-				continue;
-
-			// we visit locally here to prevent concurrent modification.
-			// it doesnt matter anyway, as the connections are cleared after anyway!
-			IEnvironment newEnv = conn.visitLocally(conn.getOriginal());
-			newEnv.addViewer(conn);
-		}
-
 		connections.clear();
 		virtualChunks.clear();
 	}
@@ -200,7 +193,7 @@ public class CuboidEnvironment implements IEnvironment {
 		VirtualBlockRegistry blockHandlers = context.getBlockHandlers();
 
 		if (currBlock != newBlock) {
-			blockHandlers.remove(this, pos, currentBlock);
+			blockHandlers.handlerOf(currBlock).remove(currBlock, this, pos, currentBlock);
 
 			if (currBlock instanceof IContainer)
 				removeTileEntity(chunk, pos);
@@ -215,8 +208,8 @@ public class CuboidEnvironment implements IEnvironment {
 				NmsTileEntities.resetBlockCache(tileEntity);
 		}
 
-		if (currBlock != newBlock && newBlock instanceof BlockContainer) {
-			blockHandlers.onPlace(this, pos, blockData);
+		if (currBlock != newBlock) {
+			blockHandlers.handlerOf(newBlock).onPlace(newBlock, this, pos, blockData);
 		}
 
 		if (newBlock instanceof IContainer) {
@@ -252,7 +245,8 @@ public class CuboidEnvironment implements IEnvironment {
 
 	private void notifyBlock(BlockPosition pos, BlockBag bag) {
 		IBlockData ibd = getType(pos);
-		context.getBlockHandlers().onRelatedUpdated(ibd.getBlock(), this, pos, bag, ibd);
+		Block block = ibd.getBlock();
+		context.getBlockHandlers().handlerOf(block).onRelatedUpdated(block, this, pos, bag, ibd);
 	}
 
 	@Override

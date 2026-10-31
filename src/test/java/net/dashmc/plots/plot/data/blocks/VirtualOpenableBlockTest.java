@@ -12,6 +12,7 @@ import net.dashmc.plots.plot.data.BuiltinHandlers;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.dashmc.plots.utils.misc.Debug;
+import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockDoor;
 import net.minecraft.server.v1_8_R3.BlockFenceGate;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -45,7 +46,9 @@ public class VirtualOpenableBlockTest {
 	 * being opened needs.
 	 */
 	private boolean use(BlockPosition at) {
-		return blockHandlers.interact(env, at, env.getType(at), null, EnumDirection.UP, 0, 0, 0);
+		IBlockData data = env.getType(at);
+		Block block = data.getBlock();
+		return blockHandlers.handlerOf(block).interact(block, env, at, data, null, EnumDirection.UP, 0, 0, 0);
 	}
 
 	/**

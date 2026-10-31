@@ -1,5 +1,6 @@
 package net.dashmc.plots.packets;
 
+import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -9,9 +10,8 @@ import io.netty.channel.ChannelPromise;
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.nms.NmsPackets;
 import net.dashmc.plots.plot.VirtualConnection;
-import net.dashmc.plots.utils.helpers.ChestHelper;
+import net.dashmc.plots.plot.interaction.ChestCloser;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
-import net.minecraft.server.v1_8_R3.MinecraftServer;
 import net.minecraft.server.v1_8_R3.Packet;
 import net.minecraft.server.v1_8_R3.PacketListenerPlayIn;
 import net.minecraft.server.v1_8_R3.PacketListenerPlayOut;
@@ -32,6 +32,10 @@ import net.minecraft.server.v1_8_R3.PacketListenerPlayOut;
 public class PacketHandler extends ChannelDuplexHandler {
 	private final VirtualConnection connection;
 	private final InterceptorRegistry interceptors;
+	// runs tasks on the main thread in the order the server handles packets
+	private final Executor packetQueue;
+	// closes the player's chest when their connection fails
+	private final ChestCloser chests;
 	private final Logger logger;
 
 	// Outgoing, on the Netty thread
@@ -61,7 +65,7 @@ public class PacketHandler extends ChannelDuplexHandler {
 
 		Packet<PacketListenerPlayIn> packet = (Packet<PacketListenerPlayIn>) obj;
 		EntityPlayer player = connection.getPlayer();
-		MinecraftServer.getServer().postToMainThread(() -> {
+		packetQueue.execute(() -> {
 			try {
 				if (!connection.isInjected() || !interceptors.intercept(packet, connection))
 					NmsPackets.handle(packet, player.playerConnection);
@@ -79,12 +83,12 @@ public class PacketHandler extends ChannelDuplexHandler {
 				+ "). Attempting to shut down player gracefully!", cause);
 
 		// the chest is closed on the main thread, as it changes the player's inventory
-		MinecraftServer.getServer().postToMainThread(this::shutdownGracefully);
+		packetQueue.execute(this::shutdownGracefully);
 
 		super.exceptionCaught(ctx, cause);
 	}
 
 	public void shutdownGracefully() {
-		ChestHelper.closeCurrentChest(connection.getPlayer(), connection.getEnvironment(), true, logger);
+		chests.closeCurrentChest(connection.getPlayer(), connection.getEnvironment(), true);
 	}
 }

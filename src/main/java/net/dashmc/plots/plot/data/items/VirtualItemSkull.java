@@ -6,17 +6,15 @@ import com.mojang.authlib.GameProfile;
 
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.plot.IEnvironment;
-import net.dashmc.plots.plot.data.VirtualBlockRegistry;
+import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.interaction.PlacementRules;
-import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.BlockSkull;
 import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.EntityHuman;
 import net.minecraft.server.v1_8_R3.EnumDirection;
 import net.minecraft.server.v1_8_R3.GameProfileSerializer;
-import net.minecraft.server.v1_8_R3.IBlockData;
 import net.minecraft.server.v1_8_R3.ItemSkull;
 import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.MathHelper;
@@ -26,30 +24,31 @@ import net.minecraft.server.v1_8_R3.TileEntitySkull;
 
 @RequiredArgsConstructor
 public class VirtualItemSkull extends VirtualItem<ItemSkull> {
-	private final VirtualBlockRegistry blocks;
+	private final PlacementRules placement;
 
 	@Override
-	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
+	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition clicked,
 			EnumDirection direction, float cX, float cY, float cZ, boolean isBorderPlace) {
 		if (direction == EnumDirection.DOWN)
 			return false;
 
-		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
-		Block block = ibd.getBlock();
-		if (!blocks.shouldRemainAt(block, environment, pos)) {
-			if (!environment.getType(pos).getBlock().getMaterial().isBuildable() && !isBorderPlace)
-				return false;
-
-			pos = pos.shift(direction);
-		} else if (isBorderPlace)
+		BlockPosition pos = placement.getPlacementPosition(environment, clicked, direction, isBorderPlace);
+		if (pos == null)
 			return false;
 
-		if (!PlacementRules.canPlace(environment, pos, direction, item, player))
+		// placed against the clicked block, which has to be solid
+		boolean againstClicked = !pos.equals(clicked);
+		if (againstClicked && !isBorderPlace
+				&& !environment.getType(clicked).getBlock().getMaterial().isBuildable())
+			return false;
+
+		if (!placement.canPlace(environment, pos, direction, item, player))
 			return false;
 		if (!environment.getType(pos).getBlock().getMaterial().isReplaceable())
 			return false;
 
-		environment.setBlock(pos, Blocks.SKULL.getBlockData().set(BlockSkull.FACING, direction), 3);
+		environment.setBlock(pos, Blocks.SKULL.getBlockData().set(BlockSkull.FACING, direction),
+				IVirtualWorld.NOTIFY_AND_SEND);
 		item.count--;
 
 		int i = 0;

@@ -29,7 +29,7 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 		if (!env.contains(pos))
 			return false;
 
-		if (!env.getOwnerUuid().equals(player.getUniqueID())) {
+		if (!env.isOwner(player)) {
 			VirtualBlockChangePacket.resync(player, env, pos);
 			return true;
 		}

@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.nms.NmsDirections;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.IVirtualWorld;
-import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.dashmc.plots.utils.helpers.FieldAccess;
@@ -22,26 +21,22 @@ import net.minecraft.server.v1_8_R3.ItemStack;
 public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 	private static final FieldAccess<Block> blockField = new FieldAccess<>(ItemDoor.class, "a", Block.class);
 
-	private final VirtualBlockRegistry blocks;
 	private final PlacementRules placement;
 	private final Debug debug;
 
 	@Override
-	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
+	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition clicked,
 			EnumDirection direction, float cX, float cY, float cZ, boolean isBorderPlace) {
 		if (direction != EnumDirection.UP)
 			return false;
 
 		debug.log(() -> "interact with called on item door. is border place? " + isBorderPlace);
 
-		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
-		Block currBlock = ibd.getBlock();
-		if (!blocks.shouldRemainAt(currBlock, environment, pos)) {
-			pos = pos.shift(direction);
-		} else if (isBorderPlace)
+		BlockPosition pos = placement.getPlacementPosition(environment, clicked, direction, isBorderPlace);
+		if (pos == null)
 			return false;
 
-		if (!PlacementRules.canPlace(environment, pos, direction, item, player))
+		if (!placement.canPlace(environment, pos, direction, item, player))
 			return false;
 
 		Block toPlace = blockField.get(item.getItem());
@@ -52,8 +47,7 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 		placeDoor(environment, pos, EnumDirection.fromAngle((double) player.yaw), toPlace);
 		--item.count;
 
-		// not lazy, as pos is reassigned above
-		debug.log("placed door @ " + pos);
+		debug.log(() -> "placed door @ " + pos);
 		return true;
 	}
 
@@ -79,8 +73,10 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 				flag2 ? BlockDoor.EnumDoorHinge.RIGHT : BlockDoor.EnumDoorHinge.LEFT);
 
 		// Spigot start - update physics after the block multi place event
-		environment.setBlock(pos, iblockdata.set(BlockDoor.HALF, BlockDoor.EnumDoorHalf.LOWER), 3);
-		environment.setBlock(pos.up(), iblockdata.set(BlockDoor.HALF, BlockDoor.EnumDoorHalf.UPPER), 3);
+		environment.setBlock(pos, iblockdata.set(BlockDoor.HALF, BlockDoor.EnumDoorHalf.LOWER),
+				IVirtualWorld.NOTIFY_AND_SEND);
+		environment.setBlock(pos.up(), iblockdata.set(BlockDoor.HALF, BlockDoor.EnumDoorHalf.UPPER),
+				IVirtualWorld.NOTIFY_AND_SEND);
 	}
 
 }

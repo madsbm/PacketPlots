@@ -1,5 +1,8 @@
 package net.dashmc.plots.plot.data.blocks;
 
+import java.util.Collection;
+import java.util.Collections;
+
 import net.dashmc.plots.nms.NmsBlocks;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualBlock;
@@ -45,6 +48,12 @@ public abstract class VirtualOpenableBlock<T extends Block> extends VirtualBlock
 		int sound = toggled.get(openProperty) ? OPEN_SOUND : CLOSE_SOUND;
 		environment.broadcast(new PacketPlayOutWorldEvent(sound, pos, 0, false));
 		return true;
+	}
+
+	// the client opens or closes the block itself when it's used
+	@Override
+	public Collection<BlockPosition> getPredictedPositions(T block, BlockPosition pos, IBlockData data) {
+		return Collections.singletonList(pos);
 	}
 
 	/**

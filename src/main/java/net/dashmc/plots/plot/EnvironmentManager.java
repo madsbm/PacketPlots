@@ -1,15 +1,16 @@
 package net.dashmc.plots.plot;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.UUID;
 
-import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
 import net.dashmc.plots.config.PlotConfig;
+import net.dashmc.plots.nms.NmsPlayers;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk;
@@ -91,8 +92,17 @@ public class EnvironmentManager {
 
 		CuboidEnvironment environment = environments.remove(player.getUniqueId());
 		if (environment != null) {
+			sendVisitorsHome(environment);
 			store.save(environment);
 			environment.close();
+		}
+	}
+
+	private static void sendVisitorsHome(IEnvironment environment) {
+		// copied, as visiting their own environment takes them out of this one's
+		// viewers
+		for (VirtualConnection visitor : new ArrayList<>(environment.getViewers())) {
+			visitor.visit(visitor.getOriginal());
 		}
 	}
 
@@ -119,6 +129,11 @@ public class EnvironmentManager {
 		environments.clear();
 	}
 
+	/**
+	 * For other plugins, e.g. to save on a schedule of their own. The plugin
+	 * itself saves an environment when its owner leaves, and all of them when
+	 * it's disabled.
+	 */
 	public void saveAll() {
 		for (CuboidEnvironment environment : environments.values()) {
 			store.save(environment);
@@ -133,7 +148,7 @@ public class EnvironmentManager {
 		if (environment == null)
 			return;
 
-		VirtualConnection connection = connectionFactory.establish(((CraftPlayer) player).getHandle(), environment);
+		VirtualConnection connection = connectionFactory.establish(NmsPlayers.getHandle(player), environment);
 		connections.put(player.getUniqueId(), connection);
 		environment.addViewer(connection);
 
@@ -145,7 +160,7 @@ public class EnvironmentManager {
 	 * of their virtual ones.
 	 */
 	public void stopVirtualization(Player player) {
-		EntityPlayer handle = ((CraftPlayer) player).getHandle();
+		EntityPlayer handle = NmsPlayers.getHandle(player);
 		VirtualConnection connection = connections.get(player.getUniqueId());
 		IEnvironment environment = get(player);
 		if (connection == null || environment == null)
@@ -157,7 +172,7 @@ public class EnvironmentManager {
 		sendRealChunks(handle, environment);
 	}
 
-	private static void sendRealChunks(EntityPlayer player, IEnvironment environment) {
+	private static void sendRealChunks(EntityPlayer player, IRenderSource environment) {
 		for (VirtualChunk chunk : environment.getChunks()) {
 			player.playerConnection.sendPacket(new PacketPlayOutMapChunk(chunk.getChunk(), false, 65535));
 		}

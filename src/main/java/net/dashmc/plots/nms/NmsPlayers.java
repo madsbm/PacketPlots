@@ -1,5 +1,8 @@
 package net.dashmc.plots.nms;
 
+import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
+import org.bukkit.entity.Player;
+
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.Entity;
 import net.minecraft.server.v1_8_R3.EntityHuman;
@@ -15,6 +18,13 @@ public class NmsPlayers {
 	public static final Statistic CHEST_OPENED = StatisticList.aa;
 	public static final Statistic TRAPPED_CHEST_TRIGGERED = StatisticList.U;
 	public static final Statistic ENDER_CHEST_OPENED = StatisticList.V;
+
+	/**
+	 * @return the server's player behind the Bukkit one
+	 */
+	public static EntityPlayer getHandle(Player player) {
+		return ((CraftPlayer) player).getHandle();
+	}
 
 	/**
 	 * Stops the player using their held item, e.g. drawing a bow.

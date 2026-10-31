@@ -1,5 +1,7 @@
 package net.dashmc.plots.plot.data;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -28,6 +30,10 @@ public abstract class VirtualBlock<T extends Block> {
 		return false;
 	}
 
+	/**
+	 * Called whenever the block is placed in the environment, like Block#onPlace,
+	 * before its tile entity is made.
+	 */
 	public void onPlace(T block, IVirtualWorld environment, BlockPosition pos, IBlockData blockData) {
 	}
 
@@ -92,6 +98,15 @@ public abstract class VirtualBlock<T extends Block> {
 
 	public boolean shouldRemainAt(IVirtualWorld env, BlockPosition pos) {
 		return false;
+	}
+
+	/**
+	 * @return the positions whose blocks the player's client may have changed when
+	 *         it predicted them using the block, which are sent to them again when
+	 *         the use is refused, e.g. both halves of a door
+	 */
+	public Collection<BlockPosition> getPredictedPositions(T block, BlockPosition pos, IBlockData data) {
+		return Collections.emptyList();
 	}
 
 	public void postPlace(T block, IVirtualWorld environment, BlockPosition blockposition, IBlockData iblockdata,

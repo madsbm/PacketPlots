@@ -78,23 +78,23 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 		boolean flag3 = chest == environment.getType(blockposition4).getBlock();
 
 		if (!flag && !flag1 && !flag2 && !flag3) {
-			environment.setBlock(blockposition, iblockdata, 3);
+			environment.setBlock(blockposition, iblockdata, IVirtualWorld.NOTIFY_AND_SEND);
 		} else if (NmsDirections.getAxis(enumdirection) == EnumDirection.EnumAxis.X && (flag || flag1)) {
 			if (flag) {
-				environment.setBlock(blockposition1, iblockdata, 3);
+				environment.setBlock(blockposition1, iblockdata, IVirtualWorld.NOTIFY_AND_SEND);
 			} else {
-				environment.setBlock(blockposition2, iblockdata, 3);
+				environment.setBlock(blockposition2, iblockdata, IVirtualWorld.NOTIFY_AND_SEND);
 			}
 
-			environment.setBlock(blockposition, iblockdata, 3);
+			environment.setBlock(blockposition, iblockdata, IVirtualWorld.NOTIFY_AND_SEND);
 		} else if (NmsDirections.getAxis(enumdirection) == EnumDirection.EnumAxis.Z && (flag2 || flag3)) {
 			if (flag2) {
-				environment.setBlock(blockposition3, iblockdata, 3);
+				environment.setBlock(blockposition3, iblockdata, IVirtualWorld.NOTIFY_AND_SEND);
 			} else {
-				environment.setBlock(blockposition4, iblockdata, 3);
+				environment.setBlock(blockposition4, iblockdata, IVirtualWorld.NOTIFY_AND_SEND);
 			}
 
-			environment.setBlock(blockposition, iblockdata, 3);
+			environment.setBlock(blockposition, iblockdata, IVirtualWorld.NOTIFY_AND_SEND);
 		}
 
 		if (itemstack.hasName()) {
@@ -235,7 +235,7 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 		}
 
 		iblockdata = iblockdata.set(BlockChest.FACING, enumdirection);
-		world.setBlock(blockposition, iblockdata, 3);
+		world.setBlock(blockposition, iblockdata, IVirtualWorld.NOTIFY_AND_SEND);
 		return iblockdata;
 	}
 

@@ -1,21 +1,12 @@
 package net.dashmc.plots.plot.data;
 
-import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.utils.helpers.ClassRegistry;
-import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.Block;
-import net.minecraft.server.v1_8_R3.BlockPosition;
-import net.minecraft.server.v1_8_R3.EntityHuman;
-import net.minecraft.server.v1_8_R3.EnumDirection;
-import net.minecraft.server.v1_8_R3.IBlockData;
-import net.minecraft.server.v1_8_R3.ItemStack;
-import net.minecraft.server.v1_8_R3.TileEntity;
 
 /**
- * The block handlers, by the class of block each one handles, and what calls
- * the right one for a block. A block uses the handler of its class, or else of
- * its closest superclass with one, or else the default, which does what
- * vanilla does.
+ * The block handlers, by the class of block each one handles. A block uses the
+ * handler of its class, or else of its closest superclass with one, or else
+ * the default, which does what vanilla does.
  */
 public class VirtualBlockRegistry {
 	/**
@@ -30,56 +21,15 @@ public class VirtualBlockRegistry {
 		handlers.register(blockClass, handler);
 	}
 
+	/**
+	 * @return the handler of the block, which is given the block along with the
+	 *         rest, e.g. handlerOf(block).onPlace(block, environment, pos, data)
+	 */
 	@SuppressWarnings("unchecked")
-	private VirtualBlock<Block> handlerOf(Block block) {
+	public VirtualBlock<Block> handlerOf(Block block) {
 		// the handler is for the block's class or a superclass of it, so it takes the
 		// block
 		VirtualBlock<Block> handler = (VirtualBlock<Block>) handlers.get(block.getClass());
 		return handler != null ? handler : DEFAULT;
-	}
-
-	public void onRelatedUpdated(Block block, IVirtualWorld env, BlockPosition pos, BlockBag bag,
-			IBlockData newBlockData) {
-		handlerOf(block).onRelatedUpdated(block, env, pos, bag, newBlockData);
-	}
-
-	public AxisAlignedBB getBoundingBox(Block block, IVirtualWorld env, BlockPosition pos, IBlockData state) {
-		return handlerOf(block).getCollisionBoundingBox(block, env, pos, state);
-	}
-
-	public boolean interact(IVirtualWorld environment, BlockPosition blockposition, IBlockData iblockdata,
-			EntityHuman entityhuman, EnumDirection enumdirection, float f, float f1, float f2) {
-		Block block = iblockdata.getBlock();
-		return handlerOf(block).interact(block, environment, blockposition, iblockdata, entityhuman, enumdirection,
-				f, f1, f2);
-	}
-
-	public void harvestBlock(Block block, IBlockData data, IVirtualWorld environment, BlockPosition pos,
-			BlockBag bag, TileEntity tile) {
-		handlerOf(block).onBlockHarvested(block, environment, pos, data, bag, tile);
-	}
-
-	public boolean shouldRemainAt(Block block, IVirtualWorld env, BlockPosition position) {
-		return handlerOf(block).shouldRemainAt(env, position);
-	}
-
-	public boolean mayPlace(Block toPlace, IVirtualWorld environment, BlockPosition pos, EnumDirection direction,
-			ItemStack itemStack) {
-		return handlerOf(toPlace).canPlace(toPlace, environment, pos, direction, itemStack);
-	}
-
-	public void postPlace(Block placedBlock, IVirtualWorld environment, BlockPosition pos, IBlockData blockData,
-			EntityHuman entityHuman, ItemStack itemStack) {
-		handlerOf(placedBlock).postPlace(placedBlock, environment, pos, blockData, entityHuman, itemStack);
-	}
-
-	public void remove(IVirtualWorld environment, BlockPosition blockposition, IBlockData iblockdata) {
-		Block block = iblockdata.getBlock();
-		handlerOf(block).remove(block, environment, blockposition, iblockdata);
-	}
-
-	public void onPlace(IVirtualWorld environment, BlockPosition blockposition, IBlockData iblockdata) {
-		Block block = iblockdata.getBlock();
-		handlerOf(block).onPlace(block, environment, blockposition, iblockdata);
 	}
 }

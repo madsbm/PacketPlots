@@ -254,7 +254,7 @@ public class EnvironmentStore {
 		debug.log(() -> "Section mask for the chunk: " + Integer.toBinaryString(sectionMask));
 		debug.log(() -> "Sections for chunk: " + Arrays.toString(chunk.getChunk().getSections()));
 		for (byte i = 0; i < 16; i++) {
-			if ((sectionMask & (1 << i)) == 0)
+			if (!Utils.hasSection(sectionMask, i))
 				continue;
 
 			readSection(chunk, region, i, stream);

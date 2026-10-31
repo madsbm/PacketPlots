@@ -1,6 +1,6 @@
 package net.dashmc.plots.player;
 
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.Block;
@@ -71,7 +71,7 @@ public class VirtualPlayerInteractManager extends PlayerInteractManager {
 		}
 
 		BlockPosition pos = getDestroyPosition();
-		IEnvironment env = connection.getEnvironment();
+		IVirtualWorld env = connection.getEnvironment();
 		if (!env.contains(pos)) {
 			super.a();
 			return;
