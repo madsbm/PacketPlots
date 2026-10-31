@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
@@ -50,6 +52,8 @@ public class CuboidEnvironment implements IEnvironment {
 	private volatile @Getter @Setter RenderPipeline renderPipeline = new RenderPipeline();
 	private @Getter final BlockBag blockBag;
 	private final EnvironmentContext context;
+	// what the changed blocks were before, while changes are recorded
+	private LinkedHashMap<BlockPosition, IBlockData> recordedChanges;
 
 	private CuboidEnvironment(Player owner, World world, CuboidRegion region, EnvironmentContext context) {
 		this.ownerUuid = owner.getUniqueId();
@@ -158,11 +162,30 @@ public class CuboidEnvironment implements IEnvironment {
 	}
 
 	@Override
+	public void startRecordingChanges() {
+		recordedChanges = new LinkedHashMap<>();
+	}
+
+	@Override
+	public Map<BlockPosition, IBlockData> stopRecordingChanges() {
+		Map<BlockPosition, IBlockData> changes = recordedChanges;
+		recordedChanges = null;
+		return changes != null ? changes : Collections.emptyMap();
+	}
+
+	@Override
 	public boolean setBlock(BlockPosition pos, IBlockData blockData, int flags) {
 		if (!this.contains(pos))
 			return false;
 
-		if (!changeBlock(virtualChunks.get(Utils.getChunkKey(pos)), pos, blockData))
+		VirtualChunk chunk = virtualChunks.get(Utils.getChunkKey(pos));
+		IBlockData previous = chunk.getBlockData(pos);
+		// kept before the change, as it may set the block again, e.g. a chest turning
+		// to face its neighbours
+		if (recordedChanges != null && previous != blockData)
+			recordedChanges.putIfAbsent(pos, previous);
+
+		if (!changeBlock(chunk, pos, blockData))
 			return false;
 
 		if ((flags & NOTIFY_NEIGHBOURS) != 0) {

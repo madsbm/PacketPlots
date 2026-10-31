@@ -33,6 +33,7 @@ import net.dashmc.plots.config.serializers.BlockPositionSerializer;
 import net.dashmc.plots.config.serializers.CuboidRegionSerializer;
 import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.listeners.ConnectionListener;
+import net.dashmc.plots.listeners.EnvironmentHazardListener;
 import net.dashmc.plots.packets.InterceptorRegistry;
 import net.dashmc.plots.packets.PacketInjector;
 import net.dashmc.plots.packets.interceptors.BlockDigPacketInterceptor;
@@ -114,7 +115,7 @@ public class PacketPlots extends JavaPlugin {
 				debug);
 
 		InteractionHandler interactions = new InteractionHandler(itemHandlers, blockHandlers, events, debug);
-		ChestCloser chests = new ChestCloser(getLogger());
+		ChestCloser chests = new ChestCloser();
 		InterceptorRegistry interceptors = registerInterceptors(interactions, chests, mainThread, acDisabledRegion,
 				events, debug);
 
@@ -127,7 +128,12 @@ public class PacketPlots extends JavaPlugin {
 		environmentManager = new EnvironmentManager(store, plotConfig, context, connectionFactory);
 
 		ConnectionListener connectionListener = ConnectionListener.register(this, environmentManager);
+		getServer().getPluginManager().registerEvents(new EnvironmentHazardListener(environmentManager), this);
 		registerCommands();
+
+		long autosaveTicks = plotConfig.getAutosaveMinutes() * 60L * 20L;
+		if (autosaveTicks > 0)
+			getServer().getScheduler().runTaskTimer(this, environmentManager::saveAll, autosaveTicks, autosaveTicks);
 
 		// players don't join again after a reload, so load the ones already online
 		for (Player player : getServer().getOnlinePlayers()) {

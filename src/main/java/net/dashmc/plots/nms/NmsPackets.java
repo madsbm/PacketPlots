@@ -95,6 +95,13 @@ public class NmsPackets {
 		return packet.h();
 	}
 
+	/**
+	 * @return whether the player's client says they stand on a block
+	 */
+	public static boolean isOnGround(PacketPlayInFlying packet) {
+		return packet.f();
+	}
+
 	public static void setHasPosition(PacketPlayInFlying packet, boolean to) {
 		packet.a(to);
 	}

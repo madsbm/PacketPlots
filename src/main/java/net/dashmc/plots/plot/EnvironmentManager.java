@@ -130,9 +130,8 @@ public class EnvironmentManager {
 	}
 
 	/**
-	 * For other plugins, e.g. to save on a schedule of their own. The plugin
-	 * itself saves an environment when its owner leaves, and all of them when
-	 * it's disabled.
+	 * Saves every loaded environment, e.g. every autosaveMinutes of the config.
+	 * An environment is also saved when its owner leaves.
 	 */
 	public void saveAll() {
 		for (CuboidEnvironment environment : environments.values()) {

@@ -113,6 +113,10 @@ public abstract class VirtualBlock<T extends Block> {
 			EntityLiving entityliving, ItemStack itemstack) {
 	}
 
+	/**
+	 * Called when a player has broken the block, once it's removed, like
+	 * Block#postBreak. It's called in creative mode too, unlike onBlockHarvested.
+	 */
 	public void postBreak(T block, IVirtualWorld environment, BlockPosition blockposition, IBlockData iblockdata) {
 	}
 

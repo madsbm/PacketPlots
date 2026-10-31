@@ -1,11 +1,14 @@
 package net.dashmc.plots.plot;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 
 import net.dashmc.plots.pipeline.RenderPipeline;
 import net.dashmc.plots.plot.data.BlockBag;
+import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityHuman;
+import net.minecraft.server.v1_8_R3.IBlockData;
 
 /**
  * A player's environment as a whole: its blocks, how it's rendered, who owns it
@@ -40,6 +43,18 @@ public interface IEnvironment extends IVirtualWorld, IRenderSource {
 	void addViewer(VirtualConnection connection);
 
 	void removeViewer(VirtualConnection connection);
+
+	/**
+	 * Starts keeping what each block that changes was before, until
+	 * {@link #stopRecordingChanges}, e.g. to undo a placement that's cancelled.
+	 */
+	void startRecordingChanges();
+
+	/**
+	 * @return the positions that changed since {@link #startRecordingChanges},
+	 *         with what they were before, in the order they first changed
+	 */
+	Map<BlockPosition, IBlockData> stopRecordingChanges();
 
 	/**
 	 * Lets go of the environment's chunks and viewers. Use

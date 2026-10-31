@@ -27,6 +27,24 @@ public class NmsPlayers {
 	}
 
 	/**
+	 * Ticks the player's body, like the server does for each move packet they
+	 * send: using their held item, e.g. eating, their potion effects, hunger and
+	 * health. It checks the blocks of the real world around them, e.g. to
+	 * suffocate them.
+	 */
+	public static void tickBody(EntityPlayer player) {
+		player.l();
+	}
+
+	/**
+	 * Counts the distance the player moved in their statistics, and makes them
+	 * hungry from it, like the server does for each move.
+	 */
+	public static void countMovement(EntityHuman player, double dx, double dy, double dz) {
+		player.checkMovement(dx, dy, dz);
+	}
+
+	/**
 	 * Stops the player using their held item, e.g. drawing a bow.
 	 */
 	public static void stopUsingItem(EntityHuman player) {

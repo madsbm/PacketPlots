@@ -1,5 +1,10 @@
 package net.dashmc.plots.plot.interaction;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftHumanEntity;
@@ -133,12 +138,15 @@ public class InteractionHandler {
 
 		int data = itemStack.getData();
 		int count = itemStack.count;
-		BlockPosition placedAt = clicked.shift(dir);
-		Location bukkitPlacedAt = Utils.convertPosToLoc(env.getRealWorld(), clicked);
 
-		IBlockData prevBlockData = env.getType(placedAt);
-		boolean flag = virtualItem.interactWith(itemStack, entityhuman, env, clicked, dir, cX, cY, cZ,
-				isBorderPlace);
+		boolean flag;
+		Map<BlockPosition, IBlockData> changes;
+		env.startRecordingChanges();
+		try {
+			flag = virtualItem.interactWith(itemStack, entityhuman, env, clicked, dir, cX, cY, cZ, isBorderPlace);
+		} finally {
+			changes = env.stopRecordingChanges();
+		}
 		debug.log(() -> "Interact with flag: " + flag);
 
 		int newData = itemStack.getData();
@@ -146,31 +154,50 @@ public class InteractionHandler {
 		itemStack.count = count;
 		itemStack.setData(data);
 
-		if (flag) {
+		if (!flag)
+			return false;
+
+		if (!changes.isEmpty()) {
+			// the first block the item changed is the one it placed, e.g. a door's lower
+			// half or the slab it made double
+			BlockPosition placedAt = changes.keySet().iterator().next();
 			IBlockData newBlockData = env.getType(placedAt);
 
 			@SuppressWarnings("deprecation")
 			org.bukkit.Material mat = org.bukkit.Material.getMaterial(Block.getId(newBlockData.getBlock()));
 
+			Location bukkitPlacedAt = Utils.convertPosToLoc(env.getRealWorld(), placedAt);
 			VirtualBlockPlaceEvent ev = new VirtualBlockPlaceEvent((Player) player, bukkitPlacedAt, mat, env);
 			events.call(ev);
 
 			if (ev.isCancelled()) {
-				env.setBlock(placedAt, prevBlockData, IVirtualWorld.NOTIFY_AND_SEND);
+				undo(env, changes);
 				return false;
-			} else {
-				if (itemStack.count == count && itemStack.getData() == data) {
-					itemStack.setData(newData);
-					itemStack.count = newCount;
-				}
-
-				if (newBlockData.getBlock() instanceof IContainer)
-					env.broadcastTile(env.getTileEntity(placedAt));
-
 			}
+
+			if (newBlockData.getBlock() instanceof IContainer)
+				env.broadcastTile(env.getTileEntity(placedAt));
 		}
 
-		return flag;
+		if (itemStack.count == count && itemStack.getData() == data) {
+			itemStack.setData(newData);
+			itemStack.count = newCount;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Puts the blocks back as they were, the last changed first. Their neighbours
+	 * aren't updated, as the changes to them are undone too.
+	 */
+	private static void undo(IVirtualWorld env, Map<BlockPosition, IBlockData> changes) {
+		List<Map.Entry<BlockPosition, IBlockData>> lastFirst = new ArrayList<>(changes.entrySet());
+		Collections.reverse(lastFirst);
+
+		for (Map.Entry<BlockPosition, IBlockData> change : lastFirst) {
+			env.setBlock(change.getKey(), change.getValue(), IVirtualWorld.SEND_TO_VIEWERS);
+		}
 	}
 
 	/**
@@ -345,6 +372,8 @@ public class InteractionHandler {
 		env.broadcast(new PacketPlayOutWorldEvent(2001, pos, Block.getCombinedId(nmsData), false));
 
 		boolean couldSet = env.setBlock(pos, Blocks.AIR.getBlockData(), IVirtualWorld.NOTIFY_AND_SEND);
+		if (couldSet)
+			blocks.handlerOf(nmsBlock).postBreak(nmsBlock, env, pos, nmsData);
 
 		if (player.playerInteractManager.isCreative())
 			VirtualBlockChangePacket.resync(player, env, pos);

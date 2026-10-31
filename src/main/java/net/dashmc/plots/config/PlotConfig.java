@@ -53,6 +53,13 @@ public class PlotConfig extends OkaeriConfig {
 		return safeLocation;
 	}
 
+	@Comment({
+			"Minutes between saves of the online players' plots, so a crash loses",
+			"at most this much. Plots are also saved when their owners leave.",
+			"0 turns it off."
+	})
+	int autosaveMinutes = 5;
+
 	@Comment("Log what the plugin is doing, for debugging. Very verbose.")
 	boolean debug = false;
 

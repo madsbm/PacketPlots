@@ -1,19 +1,17 @@
 package net.dashmc.plots.plot.interaction;
 
-import java.util.logging.Logger;
-
 import org.bukkit.craftbukkit.v1_8_R3.event.CraftEventFactory;
 
 import net.dashmc.plots.nms.NmsInventories;
 import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.utils.helpers.ClassRegistry;
-import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockChest;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.ContainerChest;
 import net.minecraft.server.v1_8_R3.EntityHuman;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
+import net.minecraft.server.v1_8_R3.IBlockData;
 import net.minecraft.server.v1_8_R3.IInventory;
 import net.minecraft.server.v1_8_R3.InventoryEnderChest;
 import net.minecraft.server.v1_8_R3.InventoryLargeChest;
@@ -23,23 +21,18 @@ import net.minecraft.server.v1_8_R3.TileEntityChest;
 
 /**
  * Closes the chest a player has open in a virtual environment, which the
- * server doesn't know of. Each kind of inventory is closed by the closer of its
- * class, or else of its closest superclass with one.
+ * server would close as if it were in the real world. Each kind of inventory
+ * is closed by the closer of its class, or else of its closest superclass with
+ * one. Inventories without one, e.g. a minecart's chest or another plugin's
+ * menu, are left to the server.
  */
 public class ChestCloser {
 	private final ClassRegistry<InventoryCloser<?>> closers = new ClassRegistry<>();
-	// where to warn about an inventory without a closer
-	private final Logger logger;
 
-	public ChestCloser(Logger logger) {
-		this.logger = logger;
-
-		register(TileEntityChest.class, ChestCloser::closeSingleChest);
-		register(InventoryLargeChest.class, ChestCloser::closeDoubleChest);
-		register(InventoryEnderChest.class, (player, enderChest, environment, sessionTerminated) -> {
-			enderChest.closeContainer(player);
-			return Result.CLOSED;
-		});
+	public ChestCloser() {
+		register(TileEntityChest.class, new SingleChestCloser());
+		register(InventoryLargeChest.class, new DoubleChestCloser());
+		register(InventoryEnderChest.class, new EnderChestCloser());
 	}
 
 	public <T extends IInventory> void register(Class<T> inventoryClass, InventoryCloser<? super T> closer) {
@@ -49,137 +42,124 @@ public class ChestCloser {
 	/**
 	 * @param sessionTerminated if the user quits whilst a container is open this
 	 *                          will be true. otherwise false.
-	 * @return true if the chest was the environment's, so the server shouldn't
-	 *         close it too
+	 * @return true if the chest was closed here, so the server shouldn't close it
+	 *         too
 	 */
 	public boolean closeCurrentChest(EntityPlayer player, IEnvironment environment, boolean sessionTerminated) {
-		PlayerInventory playerInventory = player.inventory;
 		if (!(player.activeContainer instanceof ContainerChest))
 			return false;
 
 		IInventory inventory = NmsInventories.getInventory((ContainerChest) player.activeContainer);
-		if (isCustomInventory(inventory))
+		InventoryCloser<IInventory> closer = closerOf(inventory);
+		if (closer == null || !closer.closesHere(inventory, environment))
 			return false;
 
 		if (!sessionTerminated)
 			CraftEventFactory.handleInventoryCloseEvent(player);
 
-		switch (close(player, inventory, environment, sessionTerminated)) {
-			case NOT_VIRTUAL:
-				return false;
-			case CLOSED:
-				if (playerInventory.getCarried() != null) {
-					player.drop(playerInventory.getCarried(), false);
-					playerInventory.setCarried(null);
-				}
+		closer.close(player, inventory, environment, sessionTerminated);
 
-				player.activeContainer = player.defaultContainer;
-				return true;
-			default:
-				// intercept packet to prevent dupes - do nothing tho
-				return true;
+		PlayerInventory playerInventory = player.inventory;
+		if (playerInventory.getCarried() != null) {
+			player.drop(playerInventory.getCarried(), false);
+			playerInventory.setCarried(null);
 		}
+
+		player.activeContainer = player.defaultContainer;
+		return true;
 	}
 
 	@SuppressWarnings("unchecked")
-	private <T extends IInventory> Result close(EntityPlayer player, T inventory, IEnvironment environment,
-			boolean sessionTerminated) {
+	private InventoryCloser<IInventory> closerOf(IInventory inventory) {
 		// the closer is for the inventory's class or a superclass of it, so it takes
 		// the inventory
-		InventoryCloser<T> closer = (InventoryCloser<T>) closers.get(inventory.getClass());
-		if (closer == null) {
-			logger.warning("Window close packet sent with unrecognized inventory: " + inventory.getClass());
-			return Result.FAILED;
-		}
-
-		return closer.close(player, inventory, environment, sessionTerminated);
-	}
-
-	private static Result closeSingleChest(EntityPlayer player, TileEntityChest chest, IEnvironment environment,
-			boolean sessionTerminated) {
-		if (!isChestLocationValid(chest, environment))
-			return Result.NOT_VIRTUAL;
-
-		return closeContainer(player, chest, environment, sessionTerminated) ? Result.CLOSED : Result.FAILED;
-	}
-
-	// a chest consisting of two chests
-	private static Result closeDoubleChest(EntityPlayer player, InventoryLargeChest doubleChest,
-			IEnvironment environment, boolean sessionTerminated) {
-		boolean isLeftValid = isChestLocationValid(doubleChest.left, environment);
-		boolean isRightValid = isChestLocationValid(doubleChest.right, environment);
-		if (isLeftValid ^ isRightValid) {
-			throw new RuntimeException("Location of double chest is half outside of virtual environment ("
-					+ environment.getOwnerUuid() + ")");
-		} else if (!isLeftValid && !isRightValid)
-			return Result.NOT_VIRTUAL;
-
-		boolean closed = closeContainer(player, doubleChest.left, environment, sessionTerminated)
-				&& closeContainer(player, doubleChest.right, environment, sessionTerminated);
-		return closed ? Result.CLOSED : Result.FAILED;
-	}
-
-	private static boolean isCustomInventory(IInventory inventory) {
-		Class<?> enclosing = inventory.getClass().getEnclosingClass();
-		return enclosing != null && enclosing.getName().endsWith(".CraftInventoryCustom");
-	}
-
-	private static boolean isChestLocationValid(IInventory inventory, IEnvironment env) {
-		if (!(inventory instanceof TileEntityChest))
-			return false;
-
-		TileEntityChest chest = (TileEntityChest) inventory;
-		BlockPosition pos = chest.getPosition();
-		if (!env.contains(pos))
-			return false;
-		return env.getType(pos).getBlock() instanceof BlockChest;
-	}
-
-	private static boolean closeContainer(EntityHuman human, IInventory inventory, IEnvironment env,
-			boolean sessionTerminated) {
-		if (!(inventory instanceof TileEntityChest))
-			return false;
-
-		TileEntityChest chest = (TileEntityChest) inventory;
-		BlockPosition pos = chest.getPosition();
-		if (!env.contains(pos))
-			return false;
-		else if (human.isSpectator())
-			return true;
-
-		// let them close even though it wasnt a success
-		if (!(env.getType(pos).getBlock() instanceof BlockChest))
-			return true;
-
-		NmsTileEntities.addPlayersUsing(chest, -1);
-
-		if (sessionTerminated)
-			return true;
-
-		Block block = env.getType(chest.getPosition()).getBlock();
-		PacketPlayOutBlockAction chestClosePacket = new PacketPlayOutBlockAction(chest.getPosition(), block, 1, 0);
-		env.broadcast(chestClosePacket);
-
-		return true;
+		return (InventoryCloser<IInventory>) closers.get(inventory.getClass());
 	}
 
 	/**
 	 * Closes a kind of inventory shown in a chest container, for a ChestCloser.
 	 */
-	@FunctionalInterface
 	public interface InventoryCloser<T extends IInventory> {
-		Result close(EntityPlayer player, T inventory, IEnvironment environment, boolean sessionTerminated);
+		/**
+		 * @return whether the inventory is closed here rather than by the server,
+		 *         e.g. because it's the environment's
+		 */
+		boolean closesHere(T inventory, IEnvironment environment);
+
+		void close(EntityHuman human, T inventory, IEnvironment environment, boolean sessionTerminated);
 	}
 
-	public enum Result {
-		/**
-		 * The inventory isn't the environment's, so the server closes it.
-		 */
-		NOT_VIRTUAL,
-		CLOSED,
-		/**
-		 * The inventory is the environment's, but couldn't be closed.
-		 */
-		FAILED
+	private static class SingleChestCloser implements InventoryCloser<TileEntityChest> {
+		@Override
+		public boolean closesHere(TileEntityChest chest, IEnvironment environment) {
+			return environment.contains(chest.getPosition());
+		}
+
+		@Override
+		public void close(EntityHuman human, TileEntityChest chest, IEnvironment environment,
+				boolean sessionTerminated) {
+			closeChest(human, chest, environment, sessionTerminated);
+		}
+	}
+
+	// a chest consisting of two chests
+	private static class DoubleChestCloser implements InventoryCloser<InventoryLargeChest> {
+		@Override
+		public boolean closesHere(InventoryLargeChest doubleChest, IEnvironment environment) {
+			boolean isLeftInside = isChestInside(doubleChest.left, environment);
+			boolean isRightInside = isChestInside(doubleChest.right, environment);
+			if (isLeftInside ^ isRightInside) {
+				throw new RuntimeException("Location of double chest is half outside of virtual environment ("
+						+ environment.getOwnerUuid() + ")");
+			}
+
+			return isLeftInside;
+		}
+
+		@Override
+		public void close(EntityHuman human, InventoryLargeChest doubleChest, IEnvironment environment,
+				boolean sessionTerminated) {
+			closeChest(human, (TileEntityChest) doubleChest.left, environment, sessionTerminated);
+			closeChest(human, (TileEntityChest) doubleChest.right, environment, sessionTerminated);
+		}
+
+		private static boolean isChestInside(IInventory half, IEnvironment environment) {
+			return half instanceof TileEntityChest && environment.contains(((TileEntityChest) half).getPosition());
+		}
+	}
+
+	// closing an ender chest is the same whether it's virtual or real, as the
+	// virtual one is wrapped to show its lid to the environment
+	private static class EnderChestCloser implements InventoryCloser<InventoryEnderChest> {
+		@Override
+		public boolean closesHere(InventoryEnderChest enderChest, IEnvironment environment) {
+			return true;
+		}
+
+		@Override
+		public void close(EntityHuman human, InventoryEnderChest enderChest, IEnvironment environment,
+				boolean sessionTerminated) {
+			enderChest.closeContainer(human);
+		}
+	}
+
+	/**
+	 * Closes the lid of a chest of the environment, like TileEntityChest#closeContainer
+	 * does in the real world.
+	 */
+	private static void closeChest(EntityHuman human, TileEntityChest chest, IEnvironment environment,
+			boolean sessionTerminated) {
+		BlockPosition pos = chest.getPosition();
+		IBlockData data = environment.getType(pos);
+		// let them close a chest that was broken while it was open
+		if (human.isSpectator() || !(data.getBlock() instanceof BlockChest))
+			return;
+
+		NmsTileEntities.addPlayersUsing(chest, -1);
+
+		if (sessionTerminated)
+			return;
+
+		environment.broadcast(new PacketPlayOutBlockAction(pos, data.getBlock(), 1, 0));
 	}
 }

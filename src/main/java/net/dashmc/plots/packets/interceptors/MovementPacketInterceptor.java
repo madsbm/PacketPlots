@@ -9,15 +9,21 @@ import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.events.VirtualPlayerMoveEvent;
 import net.dashmc.plots.nms.NmsPackets;
+import net.dashmc.plots.nms.NmsPlayers;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
+import net.minecraft.server.v1_8_R3.MathHelper;
 import net.minecraft.server.v1_8_R3.PacketPlayInFlying;
 import net.minecraft.server.v1_8_R3.PacketPlayOutPosition;
 import net.minecraft.server.v1_8_R3.PlayerConnection;
 
+/**
+ * Handles the player moving inside the environment they're shown, in place of
+ * the server, which would move them against the real world's blocks.
+ */
 @RequiredArgsConstructor
 public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFlying> {
 	private final CuboidRegion acDisabledRegion;
@@ -26,20 +32,29 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 
 	@Override
 	public boolean intercept(PacketPlayInFlying packet, VirtualConnection connection) {
-		double x = NmsPackets.getX(packet);
-		double y = NmsPackets.getY(packet);
-		double z = NmsPackets.getZ(packet);
+		EntityPlayer player = connection.getPlayer();
+
+		// a packet without a position, e.g. one of those sent each tick the player
+		// stands still, is where they already are
+		boolean hasPosition = NmsPackets.hasPosition(packet) && NmsPackets.getY(packet) != -999D;
+		double x = hasPosition ? NmsPackets.getX(packet) : player.locX;
+		double y = hasPosition ? NmsPackets.getY(packet) : player.locY;
+		double z = hasPosition ? NmsPackets.getZ(packet) : player.locZ;
 
 		if (!NumberConversions.isFinite(x) || !NumberConversions.isFinite(y)
 				|| !NumberConversions.isFinite(z) || !NumberConversions.isFinite(NmsPackets.getYaw(packet))
 				|| !NumberConversions.isFinite(NmsPackets.getPitch(packet))) {
 
-			connection.getPlayer().getBukkitEntity().kickPlayer("NaN in position");
+			player.getBukkitEntity().kickPlayer("NaN in position");
 			return true;
 		}
 
-		connection.setInsideACRegion(acDisabledRegion.includes((int) x, (int) y, (int) z));
-		if (!connection.getEnvironment().contains((int) x, (int) y, (int) z)) {
+		int blockX = MathHelper.floor(x);
+		int blockY = MathHelper.floor(y);
+		int blockZ = MathHelper.floor(z);
+
+		connection.setInsideACRegion(acDisabledRegion.includes(blockX, blockY, blockZ));
+		if (!connection.getEnvironment().contains(blockX, blockY, blockZ)) {
 			connection.setInsideEnvironment(false);
 			return false;
 		} else if (!connection.isMoved()) {
@@ -49,12 +64,11 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 
 		connection.setInsideEnvironment(true);
 
-		EntityPlayer player = connection.getPlayer();
 		CraftPlayer bukkitPlayer = player.getBukkitEntity();
 
 		Location from = getLocation(connection);
 		Location to = bukkitPlayer.getLocation().clone();
-		if (NmsPackets.hasPosition(packet) && !(NmsPackets.hasPosition(packet) && y == -999D)) {
+		if (hasPosition) {
 			to.setX(x);
 			to.setY(y);
 			to.setZ(z);
@@ -89,7 +103,7 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 			return true;
 
 		if (player.isSleeping()) {
-			// player.l();
+			NmsPlayers.tickBody(player);
 			player.setLocation(from.getX(), from.getY(), from.getZ(), from.getYaw(), from.getPitch());
 			return true;
 		}
@@ -97,18 +111,25 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 		// set last loc
 		setLocation(to, connection);
 
-		if (NmsPackets.hasPosition(packet) && NmsPackets.getY(packet) == -999D)
-			NmsPackets.setHasPosition(packet, false);
-
-		if (NmsPackets.hasPosition(packet)) {
-			if (Math.abs(NmsPackets.getX(packet)) > 3.0E7D || Math.abs(NmsPackets.getZ(packet)) > 3.0E7D) {
-				player.playerConnection.disconnect("Illegal position");
-				return true;
-			}
+		if (hasPosition && (Math.abs(x) > 3.0E7D || Math.abs(z) > 3.0E7D)) {
+			player.playerConnection.disconnect("Illegal position");
+			return true;
 		}
 
-		// player.l();
+		// like the server does for each move packet, before it moves the player. The
+		// real world's blocks the tick finds can't hurt them in the environment, see
+		// EnvironmentHazardListener
+		double prevX = player.locX, prevY = player.locY, prevZ = player.locZ;
+		NmsPlayers.tickBody(player);
+
+		// the tick moved the player against the real world, where they may fall
+		// through what they stand on in the environment, so it mustn't add up
+		player.onGround = NmsPackets.isOnGround(packet);
+		if (player.onGround)
+			player.motY = 0;
+
 		player.setLocation(to.getX(), to.getY(), to.getZ(), to.getYaw(), to.getPitch());
+		NmsPlayers.countMovement(player, to.getX() - prevX, to.getY() - prevY, to.getZ() - prevZ);
 
 		return true;
 	}
