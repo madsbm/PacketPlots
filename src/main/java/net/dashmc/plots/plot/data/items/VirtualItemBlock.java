@@ -1,6 +1,8 @@
 package net.dashmc.plots.plot.data.items;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.nms.NmsNbt;
+import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
@@ -73,11 +75,11 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 
 		NBTTagCompound compound = new NBTTagCompound();
 		NBTTagCompound nbttagcompound1 = (NBTTagCompound) compound.clone();
-		tile.b(compound);
+		NmsTileEntities.save(tile, compound);
 
 		NBTTagCompound nbttagcompound2 = (NBTTagCompound) itemStack.getTag().get("BlockEntityTag");
 
-		compound.a(nbttagcompound2);
+		NmsNbt.merge(compound, nbttagcompound2);
 		compound.setInt("x", pos.getX());
 		compound.setInt("y", pos.getY());
 		compound.setInt("z", pos.getZ());
@@ -85,7 +87,7 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 		if (compound.equals(nbttagcompound1))
 			return false;
 
-		tile.a(compound);
+		NmsTileEntities.load(tile, compound);
 		tile.update();
 		return true;
 	}

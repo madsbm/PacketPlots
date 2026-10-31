@@ -5,6 +5,7 @@ import org.bukkit.craftbukkit.v1_8_R3.util.CraftMagicNumbers;
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.events.VirtualBlockCanBuildEvent;
+import net.dashmc.plots.nms.NmsItems;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
@@ -69,7 +70,7 @@ public class PlacementRules {
 
 		BlockPosition shifted = pos.shift(dir.opposite());
 		Block block = world.getType(shifted).getBlock();
-		return itemStack.d(block) || itemStack.x();
+		return NmsItems.canPlaceOn(itemStack, block) || NmsItems.canEditBlocks(itemStack);
 	}
 
 	/**

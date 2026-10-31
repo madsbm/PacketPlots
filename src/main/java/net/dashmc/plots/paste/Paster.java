@@ -10,12 +10,15 @@ import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
+import net.dashmc.plots.nms.NmsBlocks;
+import net.dashmc.plots.nms.NmsChunks;
+import net.dashmc.plots.nms.NmsTileEntities;
+import net.dashmc.plots.nms.NmsWorlds;
 import net.dashmc.plots.packets.extensions.VirtualMapChunkPacket;
 import net.dashmc.plots.pipeline.RenderPipeline;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.helpers.MethodWrapper;
 import net.dashmc.plots.utils.misc.Utils;
-import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Chunk;
 import net.minecraft.server.v1_8_R3.Chunk.EnumTileEntityState;
@@ -23,7 +26,6 @@ import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
 import net.minecraft.server.v1_8_R3.ChunkSection;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.IBlockData;
-import net.minecraft.server.v1_8_R3.IContainer;
 import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import net.minecraft.server.v1_8_R3.NibbleArray;
 import net.minecraft.server.v1_8_R3.Packet;
@@ -38,12 +40,14 @@ public class Paster {
 	public static boolean paste(VirtualChunk chunk, RenderPipeline pipeline, ChunkCoordIntPair at) {
 		int atChunkX = at.x, atChunkZ = at.z;
 
-		MethodWrapper<Void> packetSender = Utils.getRelatedPlayerPacketSender(atChunkX, atChunkZ,
-				(WorldServer) chunk.getChunk().getWorld());
+		MethodWrapper<Void> packetSender = NmsChunks.getViewerPacketSender((WorldServer) chunk.getChunk().getWorld(),
+				atChunkX, atChunkZ);
 		if (packetSender == null)
 			return false;
 
 		ChunkMap map = pipeline.render(chunk);
+		byte[] data = NmsChunks.getData(map);
+		int sectionMask = NmsChunks.getSectionMask(map);
 
 		try {
 			PacketPlayOutMapChunk packet = new VirtualMapChunkPacket(atChunkX, atChunkZ, map).getPacket();
@@ -54,16 +58,16 @@ public class Paster {
 
 		Chunk nmsChunk = chunk.getChunk().getWorld().getChunkAt(atChunkX, atChunkZ);
 
-		nmsChunk.f(true);
+		NmsChunks.setModified(nmsChunk, true);
 		nmsChunk.mustSave = true;
 
-		// remove tiles in the sections about to be overwritten - World#t is removeTileEntity
+		// remove tiles in the sections about to be overwritten
 		for (BlockPosition pos : new ArrayList<>(nmsChunk.getTileEntities().keySet())) {
-			if ((map.b & 1 << (pos.getY() >> 4)) != 0)
-				nmsChunk.getWorld().t(pos);
+			if ((sectionMask & 1 << (pos.getY() >> 4)) != 0)
+				NmsWorlds.removeTileEntity(nmsChunk.getWorld(), pos);
 		}
 
-		int nonEmptyChunkSections = Integer.bitCount(map.b);
+		int nonEmptyChunkSections = Integer.bitCount(sectionMask);
 		int metaStartIdx = nonEmptyChunkSections * 2 * 16 * 16 * 16;
 
 		int idPointer = 0;
@@ -71,11 +75,11 @@ public class Paster {
 
 		char[] blockIds = new char[4096];
 		for (int i = 0; i < metaStartIdx; i += 2) {
-			blockIds[idPointer++] = Utils.getMapBlockId(map.a, i);
+			blockIds[idPointer++] = Utils.getMapBlockId(data, i);
 
 			if (idPointer == 4096) {
 				for (; sectionIndex < 16; sectionIndex++) {
-					if ((map.b & (1 << sectionIndex)) == 0)
+					if ((sectionMask & (1 << sectionIndex)) == 0)
 						continue;
 					break;
 				}
@@ -87,8 +91,8 @@ public class Paster {
 				ChunkSection section = new ChunkSection(chunkY << 4, false, blockIds);
 				nmsChunk.getSections()[chunkY] = section;
 
-				section.a(fullyLit);
-				section.b(fullyLit);
+				NmsChunks.setBlockLight(section, fullyLit);
+				NmsChunks.setSkyLight(section, fullyLit);
 
 				blockIds = new char[4096];
 
@@ -122,7 +126,7 @@ public class Paster {
 			char[] ids = section.getIdArray();
 
 			for (int idx = 0; idx < ids.length; idx++) {
-				IBlockData ibd = Block.d.a(ids[idx]);
+				IBlockData ibd = NmsBlocks.getStateById(ids[idx]);
 				if (ibd == null || !ibd.getBlock().isTileEntity())
 					continue;
 
@@ -137,14 +141,13 @@ public class Paster {
 
 				BlockPosition dst = new BlockPosition(dstX + x, y, dstZ + z);
 				NBTTagCompound nbt = new NBTTagCompound();
-				source.b(nbt);
+				NmsTileEntities.save(source, nbt);
 				nbt.setInt("x", dst.getX());
 				nbt.setInt("y", dst.getY());
 				nbt.setInt("z", dst.getZ());
 
-				Block block = ibd.getBlock();
-				TileEntity tile = ((IContainer) block).a(target.world, block.toLegacyData(ibd));
-				tile.a(nbt);
+				TileEntity tile = NmsBlocks.createTileEntity(target.world, ibd);
+				NmsTileEntities.load(tile, nbt);
 
 				target.world.setTileEntity(dst, tile);
 				updatePackets.add(tile.getUpdatePacket());

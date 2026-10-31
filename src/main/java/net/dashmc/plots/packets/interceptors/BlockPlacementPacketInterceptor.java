@@ -5,6 +5,10 @@ import org.bukkit.Location;
 import org.bukkit.util.NumberConversions;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.nms.NmsInventories;
+import net.dashmc.plots.nms.NmsItems;
+import net.dashmc.plots.nms.NmsPackets;
+import net.dashmc.plots.nms.NmsPlayers;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.plot.IEnvironment;
@@ -32,7 +36,7 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 		EntityPlayer player = conn.getPlayer();
 		IEnvironment env = conn.getEnvironment();
 
-		BlockPosition pos = packet.a();
+		BlockPosition pos = NmsPackets.getPosition(packet);
 
 		EnumDirection dir = EnumDirection.fromType1(packet.getFace());
 		boolean isBorderPlace = !env.contains(pos) && env.contains(pos.shift(dir));
@@ -64,11 +68,13 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 			if (reachDist > (player.getBukkitEntity().getGameMode() == GameMode.CREATIVE ? 7 * 7 : 6 * 6))
 				return true;
 
-			debug.log(() -> "Distance from block: "
-					+ player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D));
+			double distanceSquared = NmsPlayers.getDistanceSquared(player, pos.getX() + 0.5D, pos.getY() + 0.5D,
+					pos.getZ() + 0.5D);
+			debug.log(() -> "Distance from block: " + distanceSquared);
 
-			if (player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D) < 64D) {
-				always = interactions.interact(env, player, inHand, pos, dir, packet.d(), packet.e(), packet.f(),
+			if (distanceSquared < 64D) {
+				always = interactions.interact(env, player, inHand, pos, dir, NmsPackets.getCursorX(packet),
+						NmsPackets.getCursorY(packet), NmsPackets.getCursorZ(packet),
 						isBorderPlace);
 			}
 
@@ -91,13 +97,13 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 			inHand = null;
 		}
 
-		if (inHand == null || inHand.l() == 0) {
-			player.g = true;
-			player.inventory.items[inHandIndex] = ItemStack.b(player.inventory.items[inHandIndex]);
+		if (inHand == null || NmsItems.getUseDuration(inHand) == 0) {
+			NmsPlayers.setChangingQuantityOnly(player, true);
+			player.inventory.items[inHandIndex] = NmsItems.copy(player.inventory.items[inHandIndex]);
 			Slot slot = player.activeContainer.getSlot(player.inventory, inHandIndex);
 
-			player.activeContainer.b();
-			player.g = false;
+			NmsInventories.sendChanges(player.activeContainer);
+			NmsPlayers.setChangingQuantityOnly(player, false);
 
 			if (ItemStack.matches(player.inventory.getItemInHand(), packet.getItemStack()) || always) {
 				player.playerConnection.sendPacket(new PacketPlayOutSetSlot(player.activeContainer.windowId,

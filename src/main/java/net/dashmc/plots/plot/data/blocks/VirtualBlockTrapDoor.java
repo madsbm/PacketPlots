@@ -1,5 +1,6 @@
 package net.dashmc.plots.plot.data.blocks;
 
+import net.dashmc.plots.nms.NmsBlocks;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -20,7 +21,7 @@ public class VirtualBlockTrapDoor extends VirtualOpenableBlock<BlockTrapdoor> {
 	}
 
 	private void updateShape(BlockTrapdoor block, IVirtualWorld env, BlockPosition pos) {
-		block.d(env.getType(pos));
+		NmsBlocks.updateTrapdoorShape(block, env.getType(pos));
 	}
 
 }

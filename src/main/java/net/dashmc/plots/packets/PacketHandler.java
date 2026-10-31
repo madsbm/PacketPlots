@@ -7,6 +7,7 @@ import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.nms.NmsPackets;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.utils.helpers.ChestHelper;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
@@ -63,7 +64,7 @@ public class PacketHandler extends ChannelDuplexHandler {
 		MinecraftServer.getServer().postToMainThread(() -> {
 			try {
 				if (!connection.isInjected() || !interceptors.intercept(packet, connection))
-					packet.a(player.playerConnection);
+					NmsPackets.handle(packet, player.playerConnection);
 			} catch (Throwable t) {
 				logger.log(Level.SEVERE,
 						"Failed handling " + packet.getClass().getSimpleName() + " for " + player.getName(), t);

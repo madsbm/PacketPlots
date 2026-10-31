@@ -1,5 +1,8 @@
 package net.dashmc.plots.plot.data.blocks;
 
+import net.dashmc.plots.nms.NmsInventories;
+import net.dashmc.plots.nms.NmsPlayers;
+import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.dashmc.plots.plot.data.blocks.wrappers.EnderChestTileWrapper;
@@ -9,7 +12,6 @@ import net.minecraft.server.v1_8_R3.EntityHuman;
 import net.minecraft.server.v1_8_R3.EnumDirection;
 import net.minecraft.server.v1_8_R3.IBlockData;
 import net.minecraft.server.v1_8_R3.InventoryEnderChest;
-import net.minecraft.server.v1_8_R3.StatisticList;
 import net.minecraft.server.v1_8_R3.TileEntity;
 import net.minecraft.server.v1_8_R3.TileEntityEnderChest;
 
@@ -32,10 +34,10 @@ public class VirtualEnderChestBlock extends VirtualBlock<BlockEnderChest> {
 		TileEntityEnderChest enderChest = (TileEntityEnderChest) tile;
 		EnderChestTileWrapper wrappedEnderChest = new EnderChestTileWrapper(environment, enderChest);
 
-		enderChest.g++;
-		inventory.a(wrappedEnderChest);
+		NmsTileEntities.addPlayersUsing(enderChest, 1);
+		NmsInventories.setEnderChest(inventory, wrappedEnderChest);
 		entityhuman.openContainer(inventory);
-		entityhuman.b(StatisticList.V);
+		NmsPlayers.awardStatistic(entityhuman, NmsPlayers.ENDER_CHEST_OPENED);
 		return true;
 
 	}

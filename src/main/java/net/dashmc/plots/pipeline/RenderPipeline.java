@@ -8,6 +8,8 @@ import java.util.List;
 import com.google.common.collect.Lists;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.nms.NmsChunks;
+import net.dashmc.plots.nms.NmsWorlds;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.plot.data.VirtualChunk.Section;
 import net.dashmc.plots.utils.misc.Utils;
@@ -35,7 +37,7 @@ public class RenderPipeline {
 	public ChunkMap render(VirtualChunk chunk, int mask, boolean includeBiome) {
 		ChunkMap map = getChunkMap(chunk, mask, includeBiome);
 
-		int nonEmptyChunkSections = Integer.bitCount(map.b);
+		int nonEmptyChunkSections = Integer.bitCount(NmsChunks.getSectionMask(map));
 		// block ids are 2 bytes each - light and biome data follow them
 		int metaStartIdx = nonEmptyChunkSections * 2 * 16 * 16 * 16;
 
@@ -44,18 +46,19 @@ public class RenderPipeline {
 	}
 
 	protected ChunkMap getChunkMap(VirtualChunk chunk, int mask, boolean includeBiome) {
-		boolean isOverworld = !chunk.getChunk().getWorld().worldProvider.o();
+		boolean hasSky = NmsWorlds.hasSky(chunk.getChunk().getWorld());
 
 		ChunkMap chunkMap = new ChunkMap();
 		List<Section> arraylist = Lists.newArrayList();
 		Section[] sections = chunk.getSections();
 
+		int sectionMask = 0;
 		int j;
 		for (j = 0; j < sections.length; j++) {
 			if ((chunk.getSectionMask() & 1 << j) != 0) {
 				Section section = sections[j];
 				if (section != null && !section.isEmpty() && (mask & 1 << j) != 0) {
-					chunkMap.b |= 1 << j;
+					sectionMask |= 1 << j;
 					arraylist.add(section);
 				}
 			} else {
@@ -64,14 +67,16 @@ public class RenderPipeline {
 					continue;
 				Section section = chunk.new Section(chunkSection);
 				if (!section.isEmpty() && (mask & 1 << j) != 0) {
-					chunkMap.b |= 1 << j;
+					sectionMask |= 1 << j;
 					arraylist.add(section);
 				}
 			}
 		}
 
-		int nonEmptyChunkSections = Integer.bitCount(chunkMap.b);
-		chunkMap.a = new byte[calculateNeededBytes(nonEmptyChunkSections, isOverworld, includeBiome)];
+		int nonEmptyChunkSections = Integer.bitCount(sectionMask);
+		byte[] data = new byte[calculateNeededBytes(nonEmptyChunkSections, hasSky, includeBiome)];
+		NmsChunks.setSectionMask(chunkMap, sectionMask);
+		NmsChunks.setData(chunkMap, data);
 
 		j = 0;
 		Section section;
@@ -81,30 +86,30 @@ public class RenderPipeline {
 			char[] idArray = section.getBlockIds();
 
 			for (int l = 0; l < idArray.length; l++, j += 2) {
-				Utils.setMapBlockId(chunkMap.a, j, idArray[l]);
+				Utils.setMapBlockId(data, j, idArray[l]);
 			}
 		}
 
 		byte[] lightArray = lightArrays[nonEmptyChunkSections];
-		System.arraycopy(lightArray, 0, chunkMap.a, j, lightArray.length);
+		System.arraycopy(lightArray, 0, data, j, lightArray.length);
 
-		if (isOverworld) {
+		if (hasSky) {
 			j += lightArray.length;
-			System.arraycopy(lightArray, 0, chunkMap.a, j, lightArray.length);
+			System.arraycopy(lightArray, 0, data, j, lightArray.length);
 		}
 
 		if (includeBiome) {
 			j += lightArray.length;
-			System.arraycopy(chunk.getChunk().getBiomeIndex(), 0, chunkMap.a, j, 256);
+			System.arraycopy(chunk.getChunk().getBiomeIndex(), 0, data, j, 256);
 		}
 
 		return chunkMap;
 	}
 
-	private static int calculateNeededBytes(int i, boolean isOverworld, boolean includeBiome) {
+	private static int calculateNeededBytes(int i, boolean hasSky, boolean includeBiome) {
 		int j = i * 2 * 16 * 16 * 16;
 		int k = i * 16 * 16 * 8;
-		int l = isOverworld ? i * 16 * 16 * 8 : 0;
+		int l = hasSky ? i * 16 * 16 * 8 : 0;
 		int biome = includeBiome ? 256 : 0;
 
 		return j + k + l + biome;

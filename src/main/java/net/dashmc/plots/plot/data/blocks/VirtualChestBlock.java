@@ -2,6 +2,10 @@ package net.dashmc.plots.plot.data.blocks;
 
 import java.util.Iterator;
 
+import net.dashmc.plots.nms.NmsBlocks;
+import net.dashmc.plots.nms.NmsDirections;
+import net.dashmc.plots.nms.NmsPlayers;
+import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.minecraft.server.v1_8_R3.Block;
@@ -16,7 +20,6 @@ import net.minecraft.server.v1_8_R3.InventoryLargeChest;
 import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.MathHelper;
 import net.minecraft.server.v1_8_R3.PacketPlayOutBlockAction;
-import net.minecraft.server.v1_8_R3.StatisticList;
 import net.minecraft.server.v1_8_R3.TileEntity;
 import net.minecraft.server.v1_8_R3.TileEntityChest;
 
@@ -34,11 +37,8 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 			environment.broadcast(chestOpenPacket);
 
 			entityhuman.openContainer(itileinventory);
-			if (block.b == 0) {
-				entityhuman.b(StatisticList.aa);
-			} else if (block.b == 1) {
-				entityhuman.b(StatisticList.U);
-			}
+			NmsPlayers.awardStatistic(entityhuman,
+					NmsBlocks.isTrappedChest(block) ? NmsPlayers.TRAPPED_CHEST_TRIGGERED : NmsPlayers.CHEST_OPENED);
 		}
 
 		return true;
@@ -47,7 +47,7 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 	@Override
 	public void onPlace(BlockChest chest, IVirtualWorld world, BlockPosition blockposition,
 			IBlockData iblockdata) {
-		this.e(chest, world, blockposition, iblockdata);
+		this.updateFacing(chest, world, blockposition, iblockdata);
 		Iterator<EnumDirection> iterator = EnumDirection.EnumDirectionLimit.HORIZONTAL.iterator();
 
 		while (iterator.hasNext()) {
@@ -56,7 +56,7 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 			IBlockData iblockdata1 = world.getType(blockposition1);
 
 			if (iblockdata1.getBlock() == chest) {
-				this.e(chest, world, blockposition1, iblockdata1);
+				this.updateFacing(chest, world, blockposition1, iblockdata1);
 			}
 		}
 	}
@@ -79,7 +79,7 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 
 		if (!flag && !flag1 && !flag2 && !flag3) {
 			environment.setBlock(blockposition, iblockdata, 3);
-		} else if (enumdirection.k() == EnumDirection.EnumAxis.X && (flag || flag1)) {
+		} else if (NmsDirections.getAxis(enumdirection) == EnumDirection.EnumAxis.X && (flag || flag1)) {
 			if (flag) {
 				environment.setBlock(blockposition1, iblockdata, 3);
 			} else {
@@ -87,7 +87,7 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 			}
 
 			environment.setBlock(blockposition, iblockdata, 3);
-		} else if (enumdirection.k() == EnumDirection.EnumAxis.Z && (flag2 || flag3)) {
+		} else if (NmsDirections.getAxis(enumdirection) == EnumDirection.EnumAxis.Z && (flag2 || flag3)) {
 			if (flag2) {
 				environment.setBlock(blockposition3, iblockdata, 3);
 			} else {
@@ -101,7 +101,7 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 			TileEntity tileentity = environment.getTileEntity(blockposition);
 
 			if (tileentity instanceof TileEntityChest) {
-				((TileEntityChest) tileentity).a(itemstack.getName());
+				NmsTileEntities.setCustomName((TileEntityChest) tileentity, itemstack.getName());
 			}
 		}
 
@@ -156,7 +156,10 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 		return true;
 	}
 
-	public IBlockData e(BlockChest chest, IVirtualWorld world, BlockPosition blockposition,
+	/**
+	 * Turns the chest to face away from its neighbours, like BlockChest#e.
+	 */
+	public IBlockData updateFacing(BlockChest chest, IVirtualWorld world, BlockPosition blockposition,
 			IBlockData iblockdata) {
 		IBlockData iblockdata1 = world.getType(blockposition.north());
 		IBlockData iblockdata2 = world.getType(blockposition.south());
@@ -169,8 +172,8 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 		Block block3 = iblockdata4.getBlock();
 
 		if (block != chest && block1 != chest) {
-			boolean flag = block.o();
-			boolean flag1 = block1.o();
+			boolean flag = NmsBlocks.isFullBlock(block);
+			boolean flag1 = NmsBlocks.isFullBlock(block1);
 
 			if (block2 == chest || block3 == chest) {
 				BlockPosition blockposition1 = block2 == chest ? blockposition.west() : blockposition.east();
@@ -193,11 +196,11 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 				Block block4 = iblockdata5.getBlock();
 				Block block5 = iblockdata6.getBlock();
 
-				if ((flag || block4.o()) && !flag1 && !block5.o()) {
+				if ((flag || NmsBlocks.isFullBlock(block4)) && !flag1 && !NmsBlocks.isFullBlock(block5)) {
 					enumdirection = EnumDirection.SOUTH;
 				}
 
-				if ((flag1 || block5.o()) && !flag && !block4.o()) {
+				if ((flag1 || NmsBlocks.isFullBlock(block5)) && !flag && !NmsBlocks.isFullBlock(block4)) {
 					enumdirection = EnumDirection.NORTH;
 				}
 			}
@@ -222,11 +225,11 @@ public class VirtualChestBlock extends VirtualBlock<BlockChest> {
 			Block block6 = iblockdata7.getBlock();
 			Block block7 = iblockdata8.getBlock();
 
-			if ((block2.o() || block6.o()) && !block3.o() && !block7.o()) {
+			if ((NmsBlocks.isFullBlock(block2) || NmsBlocks.isFullBlock(block6)) && !NmsBlocks.isFullBlock(block3) && !NmsBlocks.isFullBlock(block7)) {
 				enumdirection = EnumDirection.EAST;
 			}
 
-			if ((block3.o() || block7.o()) && !block2.o() && !block6.o()) {
+			if ((NmsBlocks.isFullBlock(block3) || NmsBlocks.isFullBlock(block7)) && !NmsBlocks.isFullBlock(block2) && !NmsBlocks.isFullBlock(block6)) {
 				enumdirection = EnumDirection.WEST;
 			}
 		}

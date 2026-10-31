@@ -1,6 +1,7 @@
 package net.dashmc.plots.plot.data.items;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.nms.NmsBlocks;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.interaction.PlacementRules;
@@ -37,14 +38,14 @@ public class VirtualItemStep extends VirtualItem<ItemStep> {
 		BlockStepAbstract blockStep = stepField.get(item.getItem());
 		IBlockData ibd = environment.getType(pos);
 		if (ibd.getBlock() == blockStep) {
-			IBlockState<?> ibs = blockStep.n();
+			IBlockState<?> ibs = NmsBlocks.getSlabVariantProperty(blockStep);
 			Comparable<?> comparable = ibd.get(ibs);
 
 			EnumSlabHalf halfSlab = ibd.get(BlockStepAbstract.HALF);
 
 			boolean isBottomPlace = direction == EnumDirection.UP && halfSlab == EnumSlabHalf.BOTTOM;
 			boolean isTopPlace = direction == EnumDirection.DOWN && halfSlab == EnumSlabHalf.TOP;
-			if ((isBottomPlace || isTopPlace) && comparable == blockStep.a(item)) {
+			if ((isBottomPlace || isTopPlace) && comparable == NmsBlocks.getSlabVariant(blockStep, item)) {
 				BlockStepAbstract fullBlock = doubleField.get(item.getItem());
 
 				@SuppressWarnings({ "rawtypes", "unchecked" })
@@ -59,9 +60,9 @@ public class VirtualItemStep extends VirtualItem<ItemStep> {
 
 		ibd = environment.getType(pos.shift(direction));
 		if (ibd.getBlock() == blockStep) {
-			IBlockState<?> ibs = blockStep.n();
+			IBlockState<?> ibs = NmsBlocks.getSlabVariantProperty(blockStep);
 			Comparable<?> comparable = ibd.get(ibs);
-			if (comparable == blockStep.a(item)) {
+			if (comparable == NmsBlocks.getSlabVariant(blockStep, item)) {
 				BlockStepAbstract fullBlock = doubleField.get(item.getItem());
 				@SuppressWarnings({ "rawtypes", "unchecked" })
 				IBlockData updated = fullBlock.getBlockData().set((IBlockState) ibs, (Comparable) comparable);

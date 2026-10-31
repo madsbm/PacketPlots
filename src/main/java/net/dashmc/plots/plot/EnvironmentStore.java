@@ -21,11 +21,12 @@ import java.util.logging.Logger;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
+import net.dashmc.plots.nms.NmsNbt;
+import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.plot.data.BlockBag;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.plot.data.VirtualChunk.Section;
 import net.dashmc.plots.utils.CuboidRegion;
-import net.dashmc.plots.utils.helpers.NBTHelper;
 import net.dashmc.plots.utils.misc.Debug;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -233,11 +234,11 @@ public class EnvironmentStore {
 		stream.writeInt(tiles.size());
 		for (TileEntity tile : tiles) {
 			NBTTagCompound compound = new NBTTagCompound();
-			tile.b(compound);
+			NmsTileEntities.save(tile, compound);
 
 			debug.log(() -> "Saved tile with NBT " + compound.toString());
 
-			NBTHelper.writePayload(stream, compound);
+			NmsNbt.writePayload(stream, compound);
 		}
 	}
 
@@ -261,8 +262,8 @@ public class EnvironmentStore {
 
 		int tiles = stream.readInt();
 		for (int i = 0; i < tiles; i++) {
-			NBTTagCompound compound = NBTHelper.loadPayload(stream);
-			TileEntity tile = TileEntity.c(compound);
+			NBTTagCompound compound = NmsNbt.loadPayload(stream);
+			TileEntity tile = NmsTileEntities.createFromNbt(compound);
 
 			debug.log(() -> "Loading tile with NBT " + compound.toString());
 
@@ -332,14 +333,14 @@ public class EnvironmentStore {
 		for (ItemStack item : bag.getBag()) {
 			NBTTagCompound compound = new NBTTagCompound();
 			item.save(compound);
-			NBTHelper.writePayload(stream, compound);
+			NmsNbt.writePayload(stream, compound);
 		}
 	}
 
 	static void readBlockBag(DataInputStream stream, BlockBag bag) throws IOException {
 		int items = stream.readInt();
 		for (int i = 0; i < items; i++) {
-			NBTTagCompound compound = NBTHelper.loadPayload(stream);
+			NBTTagCompound compound = NmsNbt.loadPayload(stream);
 			bag.restore(ItemStack.createStack(compound));
 		}
 	}

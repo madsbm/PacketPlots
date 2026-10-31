@@ -1,5 +1,6 @@
 package net.dashmc.plots.plot.data.blocks;
 
+import net.dashmc.plots.nms.NmsBlocks;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.minecraft.server.v1_8_R3.Block;
@@ -58,6 +59,6 @@ public abstract class VirtualOpenableBlock<T extends Block> extends VirtualBlock
 	 * @return the state opened if it's closed, or closed if it's open
 	 */
 	protected IBlockData toggle(IBlockData state, EntityHuman human) {
-		return state.a(openProperty);
+		return NmsBlocks.cycle(state, openProperty);
 	}
 }

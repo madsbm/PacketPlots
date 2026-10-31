@@ -5,6 +5,8 @@ import java.util.logging.Logger;
 import org.bukkit.craftbukkit.v1_8_R3.event.CraftEventFactory;
 
 import lombok.experimental.UtilityClass;
+import net.dashmc.plots.nms.NmsInventories;
+import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.plot.IEnvironment;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockChest;
@@ -36,21 +38,21 @@ public class ChestHelper {
 		if (!(player.activeContainer instanceof ContainerChest))
 			return false;
 
-		ContainerChest chest = (ContainerChest) player.activeContainer;
-		if (isCustomInventory(chest.e()))
+		IInventory inventory = NmsInventories.getInventory((ContainerChest) player.activeContainer);
+		if (isCustomInventory(inventory))
 			return false;
 
 		if (!sessionTerminated)
 			CraftEventFactory.handleInventoryCloseEvent(player);
 
 		boolean success = false;
-		if (chest.e() instanceof TileEntityChest) { // single chest
-			if (!isChestLocationValid(chest.e(), environment))
+		if (inventory instanceof TileEntityChest) { // single chest
+			if (!isChestLocationValid(inventory, environment))
 				return false;
 
-			success = closeContainer(player, chest.e(), environment, sessionTerminated);
-		} else if (chest.e() instanceof InventoryLargeChest) { // chest consisting of two chests
-			InventoryLargeChest doubleChest = (InventoryLargeChest) chest.e();
+			success = closeContainer(player, inventory, environment, sessionTerminated);
+		} else if (inventory instanceof InventoryLargeChest) { // chest consisting of two chests
+			InventoryLargeChest doubleChest = (InventoryLargeChest) inventory;
 
 			boolean isLeftValid = isChestLocationValid(doubleChest.left, environment);
 			boolean isRightValid = isChestLocationValid(doubleChest.right, environment);
@@ -62,14 +64,14 @@ public class ChestHelper {
 
 			success = closeContainer(player, doubleChest.left, environment, sessionTerminated)
 					&& closeContainer(player, doubleChest.right, environment, sessionTerminated);
-		} else if (chest.e() instanceof InventoryEnderChest) {
-			InventoryEnderChest enderChest = (InventoryEnderChest) chest.e();
+		} else if (inventory instanceof InventoryEnderChest) {
+			InventoryEnderChest enderChest = (InventoryEnderChest) inventory;
 			enderChest.closeContainer(player);
 
 			success = true;
 
 		} else {
-			logger.warning("Window close packet sent with unrecognized inventory: " + chest.e().getClass());
+			logger.warning("Window close packet sent with unrecognized inventory: " + inventory.getClass());
 		}
 
 		if (success) {
@@ -117,7 +119,7 @@ public class ChestHelper {
 		if (!(env.getType(pos).getBlock() instanceof BlockChest))
 			return true;
 
-		chest.l--;
+		NmsTileEntities.addPlayersUsing(chest, -1);
 
 		if (sessionTerminated)
 			return true;

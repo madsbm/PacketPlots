@@ -3,6 +3,7 @@ package net.dashmc.plots.plot.data;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
+import net.dashmc.plots.nms.NmsBlocks;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.Block;
@@ -86,16 +87,7 @@ public abstract class VirtualBlock<T extends Block> {
 	}
 
 	public AxisAlignedBB getCollisionBoundingBox(T block, IVirtualWorld env, BlockPosition pos, IBlockData state) {
-		double minX = block.B();
-		double minY = block.D();
-		double minZ = block.F();
-
-		double maxX = block.C();
-		double maxY = block.E();
-		double maxZ = block.G();
-
-		return new AxisAlignedBB((double) pos.getX() + minX, (double) pos.getY() + minY, (double) pos.getZ() + minZ,
-				(double) pos.getX() + maxX, (double) pos.getY() + maxY, (double) pos.getZ() + maxZ);
+		return NmsBlocks.getBoundingBox(block, pos);
 	}
 
 	public boolean shouldRemainAt(IVirtualWorld env, BlockPosition pos) {

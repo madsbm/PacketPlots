@@ -1,17 +1,11 @@
 package net.dashmc.plots.utils.misc;
 
-import java.lang.reflect.Method;
-
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
 
-import net.dashmc.plots.utils.helpers.MethodWrapper;
+import net.dashmc.plots.nms.NmsChunks;
 import net.minecraft.server.v1_8_R3.BlockPosition;
-import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
-import net.minecraft.server.v1_8_R3.Packet;
-import net.minecraft.server.v1_8_R3.PlayerChunkMap;
 import net.minecraft.server.v1_8_R3.World;
-import net.minecraft.server.v1_8_R3.WorldServer;
 
 public class Utils {
 	// chunk utils
@@ -21,7 +15,7 @@ public class Utils {
 	 *         thousands of chunks in a world share
 	 */
 	public static long getChunkKey(int chunkX, int chunkZ) {
-		return ChunkCoordIntPair.a(chunkX, chunkZ);
+		return NmsChunks.getKey(chunkX, chunkZ);
 	}
 
 	public static long getChunkKey(BlockPosition pos) {
@@ -71,38 +65,4 @@ public class Utils {
 		return new BlockPosition(loc.getX(), loc.getY(), loc.getZ());
 	}
 
-	// nms
-
-	// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerChunkMap.java#L88
-	private static final Method getOrCreatePlayerChunk = findGetOrCreatePlayerChunk();
-
-	/**
-	 * @return a sender of packets to the players who have the chunk loaded, or null
-	 *         if none do
-	 */
-	public static MethodWrapper<Void> getRelatedPlayerPacketSender(int chunkX, int chunkZ, WorldServer server) {
-		PlayerChunkMap playerChunkMap = server.getPlayerChunkMap();
-		if (!playerChunkMap.isChunkInUse(chunkX, chunkZ))
-			return null;
-
-		try {
-			Object playerChunk = getOrCreatePlayerChunk.invoke(playerChunkMap, chunkX, chunkZ, true);
-
-			Method packetSender = playerChunk.getClass().getMethod("a", Packet.class);
-			packetSender.setAccessible(true);
-			return new MethodWrapper<Void>(playerChunk, packetSender);
-		} catch (ReflectiveOperationException e) {
-			throw new IllegalStateException("Couldn't get the packet sender of chunk " + chunkX + ", " + chunkZ, e);
-		}
-	}
-
-	private static Method findGetOrCreatePlayerChunk() {
-		try {
-			Method method = PlayerChunkMap.class.getDeclaredMethod("a", int.class, int.class, boolean.class);
-			method.setAccessible(true);
-			return method;
-		} catch (NoSuchMethodException e) {
-			throw new IllegalStateException("PlayerChunkMap has no method a(int, int, boolean)", e);
-		}
-	}
 }

@@ -13,6 +13,8 @@ import org.bukkit.entity.Player;
 
 import lombok.Getter;
 import lombok.Setter;
+import net.dashmc.plots.nms.NmsBlocks;
+import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.pipeline.RenderPipeline;
 import net.dashmc.plots.pipeline.RenderPipelineFactory;
@@ -210,7 +212,7 @@ public class CuboidEnvironment implements IEnvironment {
 		if (currBlock instanceof IContainer) {
 			TileEntity tileEntity = chunk.getTileEntity(pos, EnumTileEntityState.CHECK);
 			if (tileEntity != null)
-				tileEntity.E();
+				NmsTileEntities.resetBlockCache(tileEntity);
 		}
 
 		if (currBlock != newBlock && newBlock instanceof BlockContainer) {
@@ -220,12 +222,12 @@ public class CuboidEnvironment implements IEnvironment {
 		if (newBlock instanceof IContainer) {
 			TileEntity tileEntity = chunk.getTileEntity(pos, EnumTileEntityState.CHECK);
 			if (tileEntity == null) {
-				tileEntity = ((IContainer) newBlock).a(nmsWorld, newBlock.toLegacyData(blockData));
+				tileEntity = NmsBlocks.createTileEntity(nmsWorld, blockData);
 				chunk.setTileEntity(pos, tileEntity);
 			}
 
 			if (tileEntity != null)
-				tileEntity.E();
+				NmsTileEntities.resetBlockCache(tileEntity);
 		}
 
 		return true;

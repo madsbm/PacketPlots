@@ -1,5 +1,6 @@
 package net.dashmc.plots.plot.data.blocks;
 
+import net.dashmc.plots.nms.NmsBlocks;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
@@ -23,7 +24,7 @@ public class VirtualFenceGateBlock extends VirtualOpenableBlock<BlockFenceGate> 
 
 		debug.log(() -> block.getClass() + ", " + state.toString());
 
-		return block.a(null, pos, state);
+		return NmsBlocks.getFenceGateBoundingBox(block, pos, state);
 	}
 
 	// a gate opens away from the player

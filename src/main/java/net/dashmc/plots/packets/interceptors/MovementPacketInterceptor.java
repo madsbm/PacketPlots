@@ -8,6 +8,7 @@ import org.bukkit.util.NumberConversions;
 import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.events.VirtualPlayerMoveEvent;
+import net.dashmc.plots.nms.NmsPackets;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.utils.CuboidRegion;
@@ -25,13 +26,13 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 
 	@Override
 	public boolean intercept(PacketPlayInFlying packet, VirtualConnection connection) {
-		double x = packet.a();
-		double y = packet.b();
-		double z = packet.c();
+		double x = NmsPackets.getX(packet);
+		double y = NmsPackets.getY(packet);
+		double z = NmsPackets.getZ(packet);
 
 		if (!NumberConversions.isFinite(x) || !NumberConversions.isFinite(y)
-				|| !NumberConversions.isFinite(z) || !NumberConversions.isFinite(packet.d())
-				|| !NumberConversions.isFinite(packet.e())) {
+				|| !NumberConversions.isFinite(z) || !NumberConversions.isFinite(NmsPackets.getYaw(packet))
+				|| !NumberConversions.isFinite(NmsPackets.getPitch(packet))) {
 
 			connection.getPlayer().getBukkitEntity().kickPlayer("NaN in position");
 			return true;
@@ -53,15 +54,15 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 
 		Location from = getLocation(connection);
 		Location to = bukkitPlayer.getLocation().clone();
-		if (packet.g() && !(packet.g() && y == -999D)) {
+		if (NmsPackets.hasPosition(packet) && !(NmsPackets.hasPosition(packet) && y == -999D)) {
 			to.setX(x);
 			to.setY(y);
 			to.setZ(z);
 		}
 
-		if (packet.h()) {
-			to.setYaw(packet.d());
-			to.setPitch(packet.e());
+		if (NmsPackets.hasLook(packet)) {
+			to.setYaw(NmsPackets.getYaw(packet));
+			to.setPitch(NmsPackets.getPitch(packet));
 		}
 
 		double dx = to.getX() - from.getX();
@@ -96,11 +97,11 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 		// set last loc
 		setLocation(to, connection);
 
-		if (packet.g() && packet.b() == -999D)
-			packet.a(false);
+		if (NmsPackets.hasPosition(packet) && NmsPackets.getY(packet) == -999D)
+			NmsPackets.setHasPosition(packet, false);
 
-		if (packet.g()) {
-			if (Math.abs(packet.a()) > 3.0E7D || Math.abs(packet.c()) > 3.0E7D) {
+		if (NmsPackets.hasPosition(packet)) {
+			if (Math.abs(NmsPackets.getX(packet)) > 3.0E7D || Math.abs(NmsPackets.getZ(packet)) > 3.0E7D) {
 				player.playerConnection.disconnect("Illegal position");
 				return true;
 			}

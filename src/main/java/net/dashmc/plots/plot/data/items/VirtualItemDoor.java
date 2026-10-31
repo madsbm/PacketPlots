@@ -1,6 +1,7 @@
 package net.dashmc.plots.plot.data.items;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.nms.NmsDirections;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
@@ -58,8 +59,8 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 
 	// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/ItemDoor.java#L35
 	private static void placeDoor(IVirtualWorld environment, BlockPosition pos, EnumDirection dir, Block block) {
-		BlockPosition blockposition1 = pos.shift(dir.e());
-		BlockPosition blockposition2 = pos.shift(dir.f());
+		BlockPosition blockposition1 = pos.shift(NmsDirections.rotateClockwise(dir));
+		BlockPosition blockposition2 = pos.shift(NmsDirections.rotateCounterClockwise(dir));
 		int i = (environment.getType(blockposition2).getBlock().isOccluding() ? 1 : 0)
 				+ (environment.getType(blockposition2.up()).getBlock().isOccluding() ? 1 : 0);
 		int j = (environment.getType(blockposition1).getBlock().isOccluding() ? 1 : 0)

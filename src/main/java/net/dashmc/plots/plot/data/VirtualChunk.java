@@ -8,6 +8,8 @@ import java.util.Map;
 
 import org.apache.commons.lang.NotImplementedException;
 import lombok.Getter;
+import net.dashmc.plots.nms.NmsBlocks;
+import net.dashmc.plots.nms.NmsTileEntities;
 import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.dashmc.plots.utils.misc.Utils;
@@ -147,16 +149,16 @@ public class VirtualChunk {
 	 * the one it had.
 	 */
 	public void setTileEntity(BlockPosition pos, TileEntity entity) {
-		if (entity == null || entity.x())
+		if (entity == null || NmsTileEntities.isInvalid(entity))
 			return;
 
-		entity.a(pos);
+		NmsTileEntities.setPosition(entity, pos);
 		if (getBlockData(pos).getBlock() instanceof IContainer) {
 			if (tileEntities.containsKey(pos)) {
-				tileEntities.get(pos).y();
+				NmsTileEntities.invalidate(tileEntities.get(pos));
 			}
 
-			entity.D();
+			NmsTileEntities.validate(entity);
 			this.tileEntities.put(pos, entity);
 		}
 	}
@@ -169,7 +171,7 @@ public class VirtualChunk {
 	public TileEntity removeTileEntity(BlockPosition pos) {
 		TileEntity tileEntity = tileEntities.remove(pos);
 		if (tileEntity != null)
-			tileEntity.y();
+			NmsTileEntities.invalidate(tileEntity);
 
 		return tileEntity;
 	}
@@ -192,12 +194,11 @@ public class VirtualChunk {
 			if (entityState == EnumTileEntityState.IMMEDIATE) {
 				Block block = this.getType(pos);
 
-				tileEntity = block.isTileEntity() ? ((IContainer) block).a(this.world, getBlockAsLegacyData(pos))
-						: null;
+				tileEntity = block.isTileEntity() ? NmsBlocks.createTileEntity(this.world, getBlockData(pos)) : null;
 				setTileEntity(pos, tileEntity);
 			} else if (entityState == EnumTileEntityState.QUEUED)
 				throw new NotImplementedException();
-		} else if (tileEntity.x()) {
+		} else if (NmsTileEntities.isInvalid(tileEntity)) {
 			this.tileEntities.remove(pos);
 			return null;
 		}
@@ -252,7 +253,7 @@ public class VirtualChunk {
 		}
 
 		public IBlockData getType(byte x, byte y, byte z) {
-			IBlockData ibd = Block.d.a(this.blockIds[Utils.getSectionIndex(x, y, z)]);
+			IBlockData ibd = NmsBlocks.getStateById(this.blockIds[Utils.getSectionIndex(x, y, z)]);
 			return ibd == null ? Blocks.AIR.getBlockData() : ibd;
 		}
 
@@ -273,7 +274,7 @@ public class VirtualChunk {
 			if (newBlock != Blocks.AIR)
 				++this.nonEmptyBlockCount;
 
-			blockIds[Utils.getSectionIndex(x, y, z)] = (char) Block.d.b(blockData);
+			blockIds[Utils.getSectionIndex(x, y, z)] = (char) NmsBlocks.getStateId(blockData);
 		}
 	}
 }

@@ -1,6 +1,8 @@
 package net.dashmc.plots.packets.interceptors;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.nms.NmsPackets;
+import net.dashmc.plots.nms.NmsPlayers;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.plot.IEnvironment;
@@ -23,7 +25,7 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 		IEnvironment env = conn.getEnvironment();
 		EntityPlayer player = conn.getPlayer();
 
-		BlockPosition pos = packet.a();
+		BlockPosition pos = NmsPackets.getPosition(packet);
 		if (!env.contains(pos))
 			return false;
 
@@ -32,7 +34,7 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 			return true;
 		}
 
-		switch (packet.c()) {
+		switch (NmsPackets.getDigType(packet)) {
 			case DROP_ITEM:
 				if (player.isSpectator())
 					return true;
@@ -46,7 +48,7 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 				// player.a(true);
 				break;
 			case RELEASE_USE_ITEM:
-				player.bU();
+				NmsPlayers.stopUsingItem(player);
 				break;
 			case ABORT_DESTROY_BLOCK:
 			case START_DESTROY_BLOCK:
@@ -60,12 +62,12 @@ public class BlockDigPacketInterceptor extends PacketInterceptor<PacketPlayInBlo
 					return true;
 				else if (pos.getY() >= 256)
 					return true;
-				else if (packet.c() == EnumPlayerDigType.START_DESTROY_BLOCK) {
-					interactions.startDestroy(conn, pos, packet.b());
+				else if (NmsPackets.getDigType(packet) == EnumPlayerDigType.START_DESTROY_BLOCK) {
+					interactions.startDestroy(conn, pos, NmsPackets.getFace(packet));
 					return true;
-				} else if (packet.c() == EnumPlayerDigType.STOP_DESTROY_BLOCK) {
+				} else if (NmsPackets.getDigType(packet) == EnumPlayerDigType.STOP_DESTROY_BLOCK) {
 					interactions.stopDestroy(conn, pos);
-				} else if (packet.c() == EnumPlayerDigType.ABORT_DESTROY_BLOCK) {
+				} else if (NmsPackets.getDigType(packet) == EnumPlayerDigType.ABORT_DESTROY_BLOCK) {
 					interactions.abortDestroy(conn);
 				}
 

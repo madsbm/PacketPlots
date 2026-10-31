@@ -1,8 +1,8 @@
 package net.dashmc.plots.plot.data.blocks;
 
+import net.dashmc.plots.nms.NmsBlocks;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.BlockBag;
-import net.dashmc.plots.utils.helpers.MethodWrapper;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.BlockDoor;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -57,14 +57,7 @@ public class VirtualBlockDoor extends VirtualOpenableBlock<BlockDoor> {
 	}
 
 	private void updateShape(BlockDoor block, IVirtualWorld env, BlockPosition pos) {
-		int facing = getFacingData(env, pos);
-
-		try {
-			MethodWrapper<Void> updateBBMethod = new MethodWrapper<>(block, "k", int.class);
-			updateBBMethod.call(facing);
-		} catch (ReflectiveOperationException e) {
-			throw new IllegalStateException("Couldn't update the bounding box of " + block, e);
-		}
+		NmsBlocks.updateDoorShape(block, getFacingData(env, pos));
 	}
 
 	private static int getFacingData(IVirtualWorld env, BlockPosition blockposition) {

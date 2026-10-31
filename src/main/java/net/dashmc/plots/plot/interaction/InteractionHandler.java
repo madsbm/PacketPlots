@@ -13,6 +13,8 @@ import net.dashmc.plots.events.VirtualBlockBreakEvent;
 import net.dashmc.plots.events.VirtualBlockDamageEvent;
 import net.dashmc.plots.events.VirtualBlockPlaceEvent;
 import net.dashmc.plots.events.VirtualInteractEvent;
+import net.dashmc.plots.nms.NmsItems;
+import net.dashmc.plots.nms.NmsPlayers;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.player.VirtualPlayerInteractManager;
 import net.dashmc.plots.plot.IEnvironment;
@@ -214,7 +216,8 @@ public class InteractionHandler {
 
 		Block block = env.getType(pos).getBlock();
 
-		debug.log(() -> "Is survival or adventure mode?" + player.playerInteractManager.c());
+		debug.log(() -> "Is adventure or spectator mode? "
+				+ NmsPlayers.isAdventureOrSpectator(player.playerInteractManager));
 
 		if (!mayBreak(player, block))
 			return;
@@ -310,8 +313,9 @@ public class InteractionHandler {
 
 	// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerInteractManager.java#L249
 	private boolean breakBlock(IEnvironment env, EntityPlayer player, BlockPosition pos) {
-		boolean isSword = player.playerInteractManager.getGameMode().d() && player.bA() != null
-				&& player.bA().getItem() instanceof ItemSword;
+		ItemStack inHand = player.inventory.getItemInHand();
+		boolean isSword = player.playerInteractManager.isCreative() && inHand != null
+				&& inHand.getItem() instanceof ItemSword;
 		if (env.getTileEntity(pos) == null && !isSword) {
 			PacketPlayOutBlockChange packet = new VirtualBlockChangePacket(env, pos).getPacket();
 			packet.block = Blocks.AIR.getBlockData();
@@ -357,13 +361,13 @@ public class InteractionHandler {
 		if (player.playerInteractManager.isCreative())
 			VirtualBlockChangePacket.resync(player, env, pos);
 		else {
-			ItemStack held = player.bZ();
-			boolean flag = player.b(nmsBlock);
+			ItemStack held = player.inventory.getItemInHand();
+			boolean flag = NmsPlayers.canHarvest(player, nmsBlock);
 
 			if (held != null) {
-				held.a(null, nmsBlock, pos, player);
+				NmsItems.onBlockBroken(held, null, nmsBlock, pos, player);
 				if (held.count == 0)
-					player.ca();
+					NmsPlayers.destroyItemInHand(player);
 			}
 
 			if (flag && couldSet) {
@@ -381,14 +385,14 @@ public class InteractionHandler {
 	 *         unless they may build
 	 */
 	private static boolean mayBreak(EntityPlayer player, Block block) {
-		if (!player.playerInteractManager.c())
+		if (!NmsPlayers.isAdventureOrSpectator(player.playerInteractManager))
 			return true;
 		if (player.playerInteractManager.getGameMode() == EnumGamemode.SPECTATOR)
 			return false;
-		if (player.cn())
+		if (player.abilities.mayBuild)
 			return true;
 
-		ItemStack item = player.bZ();
-		return item != null && item.c(block);
+		ItemStack item = player.inventory.getItemInHand();
+		return item != null && NmsItems.canDestroy(item, block);
 	}
 }
