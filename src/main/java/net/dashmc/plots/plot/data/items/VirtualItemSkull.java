@@ -4,7 +4,9 @@ import java.util.UUID;
 
 import com.mojang.authlib.GameProfile;
 
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.minecraft.server.v1_8_R3.Block;
@@ -22,7 +24,9 @@ import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import net.minecraft.server.v1_8_R3.TileEntity;
 import net.minecraft.server.v1_8_R3.TileEntitySkull;
 
+@RequiredArgsConstructor
 public class VirtualItemSkull extends VirtualItem<ItemSkull> {
+	private final VirtualBlockRegistry blocks;
 
 	@Override
 	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
@@ -32,7 +36,7 @@ public class VirtualItemSkull extends VirtualItem<ItemSkull> {
 
 		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block block = ibd.getBlock();
-		if (!environment.getBlockHandlers().shouldRemainAt(block, environment, pos)) {
+		if (!blocks.shouldRemainAt(block, environment, pos)) {
 			if (!environment.getType(pos).getBlock().getMaterial().isBuildable() && !isBorderPlace)
 				return false;
 

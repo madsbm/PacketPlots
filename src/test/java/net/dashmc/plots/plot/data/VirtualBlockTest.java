@@ -9,7 +9,8 @@ import java.util.List;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import net.dashmc.plots.plot.FakeEnvironment;
+import net.dashmc.plots.plot.FakeWorld;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
@@ -18,6 +19,7 @@ import net.minecraft.server.v1_8_R3.IBlockData;
 import net.minecraft.server.v1_8_R3.Item;
 import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.Items;
+import net.minecraft.server.v1_8_R3.PlayerInventory;
 
 public class VirtualBlockTest {
 	private static final VirtualBlockRegistry blockHandlers = new VirtualBlockRegistry();
@@ -26,7 +28,7 @@ public class VirtualBlockTest {
 	public static void bootstrap() {
 		// registers the blocks and items, like the server does on startup
 		DispenserRegistry.c();
-		BuiltinHandlers.registerBlocks(blockHandlers);
+		BuiltinHandlers.registerBlocks(blockHandlers, Debug.OFF);
 	}
 
 	/**
@@ -34,15 +36,18 @@ public class VirtualBlockTest {
 	 *         their block bag
 	 */
 	private static List<ItemStack> harvest(Block block, int legacyData) {
-		FakeEnvironment env = new FakeEnvironment(blockHandlers);
+		// an inventory without a player behind it
+		PlayerInventory ownerInventory = new PlayerInventory(null);
+		BlockBag bag = new BlockBag(ownerInventory, event -> {
+		}, Debug.OFF);
 		IBlockData data = block.fromLegacyData(legacyData);
-		blockHandlers.harvestBlock(block, data, env, new BlockPosition(0, 64, 0), env.getBlockBag(), null);
+		blockHandlers.harvestBlock(block, data, new FakeWorld(), new BlockPosition(0, 64, 0), bag, null);
 
 		List<ItemStack> received = new ArrayList<>();
-		for (ItemStack stack : env.getOwnerInventory().items)
+		for (ItemStack stack : ownerInventory.items)
 			if (stack != null)
 				received.add(stack);
-		received.addAll(env.getBlockBag().getBag());
+		received.addAll(bag.getBag());
 		return received;
 	}
 

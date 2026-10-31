@@ -1,7 +1,7 @@
 package net.dashmc.plots.plot.data.blocks.wrappers;
 
 import lombok.Getter;
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.utils.helpers.FieldAccess;
 import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.EntityHuman;
@@ -10,10 +10,10 @@ import net.minecraft.server.v1_8_R3.TileEntityEnderChest;
 
 @Getter
 public class EnderChestTileWrapper extends TileEntityEnderChest {
-	private final IEnvironment environment;
+	private final IVirtualWorld environment;
 	private TileEntityEnderChest wrapped;
 
-	public EnderChestTileWrapper(IEnvironment env, TileEntityEnderChest src) {
+	public EnderChestTileWrapper(IVirtualWorld env, TileEntityEnderChest src) {
 		this.environment = env;
 		this.wrapped = src;
 

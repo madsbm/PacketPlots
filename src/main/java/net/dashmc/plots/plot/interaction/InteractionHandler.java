@@ -8,6 +8,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.block.Action;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.events.VirtualBlockBreakEvent;
 import net.dashmc.plots.events.VirtualBlockDamageEvent;
 import net.dashmc.plots.events.VirtualBlockPlaceEvent;
@@ -16,8 +17,10 @@ import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.player.VirtualPlayerInteractManager;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
+import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.data.VirtualItemRegistry;
+import net.dashmc.plots.utils.misc.Debug;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockCommand;
@@ -49,6 +52,9 @@ import net.minecraft.server.v1_8_R3.WorldSettings.EnumGamemode;
 @RequiredArgsConstructor
 public class InteractionHandler {
 	private final VirtualItemRegistry items;
+	private final VirtualBlockRegistry blocks;
+	private final EventDispatcher events;
+	private final Debug debug;
 
 	public boolean interact(IEnvironment env, EntityHuman human, ItemStack item, BlockPosition pos,
 			EnumDirection dir, float cX, float cY, float cZ, boolean isBorderPlace) {
@@ -61,8 +67,8 @@ public class InteractionHandler {
 
 		boolean result = false;
 
-		env.getDebug().log(() -> "Interact IBD:" + blockData.getBlock().toString());
-		env.getDebug().log(() -> "Block is not air?: " + (blockData.getBlock() != Blocks.AIR));
+		debug.log(() -> "Interact IBD:" + blockData.getBlock().toString());
+		debug.log(() -> "Block is not air?: " + (blockData.getBlock() != Blocks.AIR));
 
 		if (blockData.getBlock() != Blocks.AIR) {
 			boolean cancelledBlock = false;
@@ -83,7 +89,7 @@ public class InteractionHandler {
 					cancelledBlock, env);
 			if (cancelledBlock)
 				ev.setUseClickedBlock(Event.Result.DENY);
-			env.getEvents().call(ev);
+			events.call(ev);
 
 			if (ev.getUseClickedBlock() == Event.Result.DENY) {
 				handleGateMismatch(env, blockData, human, pos);
@@ -91,12 +97,12 @@ public class InteractionHandler {
 			} else if (gameMode == GameMode.SPECTATOR) {
 				// TODO: implement
 			} else if (!human.isSneaking() || item == null) {
-				result = env.getBlockHandlers().interact(env, pos, blockData, human, dir, cX, cY, cZ);
+				result = blocks.interact(env, pos, blockData, human, dir, cX, cY, cZ);
 			}
 
-			env.getDebug().log(() -> "Item is: " + item);
+			debug.log(() -> "Item is: " + item);
 			// not lazy, as result changes below
-			env.getDebug().log("Result is: " + result);
+			debug.log("Result is: " + result);
 
 			if (item != null && !result) {
 				int data = item.getData();
@@ -131,7 +137,7 @@ public class InteractionHandler {
 		IBlockData prevBlockData = env.getType(placedAt);
 		boolean flag = virtualItem.interactWith(itemStack, entityhuman, env, clicked, dir, cX, cY, cZ,
 				isBorderPlace);
-		env.getDebug().log(() -> "Interact with flag: " + flag);
+		debug.log(() -> "Interact with flag: " + flag);
 
 		int newData = itemStack.getData();
 		int newCount = itemStack.count;
@@ -145,7 +151,7 @@ public class InteractionHandler {
 			org.bukkit.Material mat = org.bukkit.Material.getMaterial(Block.getId(newBlockData.getBlock()));
 
 			VirtualBlockPlaceEvent ev = new VirtualBlockPlaceEvent((Player) player, bukkitPlacedAt, mat, env);
-			env.getEvents().call(ev);
+			events.call(ev);
 
 			if (ev.isCancelled()) {
 				env.setBlock(placedAt, prevBlockData, 3);
@@ -157,7 +163,7 @@ public class InteractionHandler {
 				}
 
 				if (!(newBlockData.getBlock() instanceof BlockContainer)) {
-					env.getBlockHandlers().onPlace(env, placedAt, newBlockData);
+					blocks.onPlace(env, placedAt, newBlockData);
 				}
 
 				if (newBlockData.getBlock() instanceof IContainer)
@@ -190,16 +196,16 @@ public class InteractionHandler {
 
 		VirtualInteractEvent event = new VirtualInteractEvent(player, Action.LEFT_CLICK_BLOCK, pos, dir,
 				player.inventory.getItemInHand(), false, env);
-		env.getEvents().call(event);
+		events.call(event);
 
-		env.getDebug().log(() -> "startDestroy called, is interact event cancelled? " + event.isCancelled());
+		debug.log(() -> "startDestroy called, is interact event cancelled? " + event.isCancelled());
 
 		if (event.isCancelled()) {
 			VirtualBlockChangePacket.resync(player, env, pos);
 			return;
 		}
 
-		env.getDebug().log(() -> "Is player creative?" + player.playerInteractManager.isCreative());
+		debug.log(() -> "Is player creative?" + player.playerInteractManager.isCreative());
 
 		if (player.playerInteractManager.isCreative()) {
 			breakBlock(env, player, pos);
@@ -208,7 +214,7 @@ public class InteractionHandler {
 
 		Block block = env.getType(pos).getBlock();
 
-		env.getDebug().log(() -> "Is survival or adventure mode?" + player.playerInteractManager.c());
+		debug.log(() -> "Is survival or adventure mode?" + player.playerInteractManager.c());
 
 		if (!mayBreak(player, block))
 			return;
@@ -235,7 +241,7 @@ public class InteractionHandler {
 				Utils.convertPosToLoc(env.getRealWorld(), pos), player.getBukkitEntity(),
 				player.getBukkitEntity().getItemInHand(), env);
 		blockEvent.setInstaBreak(f >= 1.0f);
-		env.getEvents().call(blockEvent);
+		events.call(blockEvent);
 
 		if (blockEvent.isCancelled()) {
 			VirtualBlockChangePacket.resync(player, env, pos);
@@ -249,7 +255,7 @@ public class InteractionHandler {
 
 			breakBlock(env, player, pos);
 		} else { // https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/PlayerInteractManager.java#L190
-			env.getDebug().log(() -> "Setting destroy-fields, pos " + pos);
+			debug.log(() -> "Setting destroy-fields, pos " + pos);
 
 			interactManager.setIsDestroying(true);
 			interactManager.setDestroyPosition(pos);
@@ -267,7 +273,7 @@ public class InteractionHandler {
 		EntityPlayer player = conn.getPlayer();
 		VirtualPlayerInteractManager interactManager = conn.getInteractManager();
 
-		env.getDebug().log(() -> "stop destroy at pos: " + pos.toString() + ", destroy pos: "
+		debug.log(() -> "stop destroy at pos: " + pos.toString() + ", destroy pos: "
 				+ interactManager.getDestroyPosition());
 		if (pos.equals(interactManager.getDestroyPosition())) {
 			interactManager.setCurrentTick(MinecraftServer.currentTick);
@@ -319,10 +325,10 @@ public class InteractionHandler {
 		IBlockData nmsData = env.getType(pos);
 		Block nmsBlock = nmsData.getBlock();
 
-		env.getEvents().call(ev);
+		events.call(ev);
 		TileEntity tile = env.getTileEntity(pos);
 
-		env.getDebug().log(() -> "Is block break event cancelled? " + ev.isCancelled());
+		debug.log(() -> "Is block break event cancelled? " + ev.isCancelled());
 
 		if (ev.isCancelled()) {
 			if (isSword)
@@ -336,7 +342,7 @@ public class InteractionHandler {
 			return false;
 
 		if (nmsBlock == Blocks.SKULL && !player.playerInteractManager.isCreative()) {
-			env.getBlockHandlers().harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
+			blocks.harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
 
 			return env.setBlock(pos, Blocks.AIR.getBlockData(), 3);
 		}
@@ -362,7 +368,7 @@ public class InteractionHandler {
 
 			if (flag && couldSet) {
 				// nmsBlock.a(nmsWorld, player, pos, nmsData, tile);
-				env.getBlockHandlers().harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
+				blocks.harvestBlock(nmsBlock, nmsData, env, pos, env.getBlockBag(), tile);
 			}
 		}
 

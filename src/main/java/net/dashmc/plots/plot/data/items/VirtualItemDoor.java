@@ -1,9 +1,13 @@
 package net.dashmc.plots.plot.data.items;
 
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
+import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.dashmc.plots.utils.helpers.FieldAccess;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockDoor;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -13,8 +17,13 @@ import net.minecraft.server.v1_8_R3.IBlockData;
 import net.minecraft.server.v1_8_R3.ItemDoor;
 import net.minecraft.server.v1_8_R3.ItemStack;
 
+@RequiredArgsConstructor
 public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 	private static final FieldAccess<Block> blockField = new FieldAccess<>(ItemDoor.class, "a", Block.class);
+
+	private final VirtualBlockRegistry blocks;
+	private final PlacementRules placement;
+	private final Debug debug;
 
 	@Override
 	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
@@ -22,11 +31,11 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 		if (direction != EnumDirection.UP)
 			return false;
 
-		environment.getDebug().log(() -> "interact with called on item door. is border place? " + isBorderPlace);
+		debug.log(() -> "interact with called on item door. is border place? " + isBorderPlace);
 
 		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block currBlock = ibd.getBlock();
-		if (!environment.getBlockHandlers().shouldRemainAt(currBlock, environment, pos)) {
+		if (!blocks.shouldRemainAt(currBlock, environment, pos)) {
 			pos = pos.shift(direction);
 		} else if (isBorderPlace)
 			return false;
@@ -36,19 +45,19 @@ public class VirtualItemDoor extends VirtualItem<ItemDoor> {
 
 		Block toPlace = blockField.get(item.getItem());
 
-		if (!PlacementRules.isBuildable(environment, toPlace, pos, false, direction, player, item))
+		if (!placement.isBuildable(environment, toPlace, pos, false, direction, player, item))
 			return false;
 
 		placeDoor(environment, pos, EnumDirection.fromAngle((double) player.yaw), toPlace);
 		--item.count;
 
 		// not lazy, as pos is reassigned above
-		environment.getDebug().log("placed door @ " + pos);
+		debug.log("placed door @ " + pos);
 		return true;
 	}
 
 	// https://github.com/Attano/Spigot-1.8/blob/master/net/minecraft/server/v1_8_R3/ItemDoor.java#L35
-	private static void placeDoor(IEnvironment environment, BlockPosition pos, EnumDirection dir, Block block) {
+	private static void placeDoor(IVirtualWorld environment, BlockPosition pos, EnumDirection dir, Block block) {
 		BlockPosition blockposition1 = pos.shift(dir.e());
 		BlockPosition blockposition2 = pos.shift(dir.f());
 		int i = (environment.getType(blockposition2).getBlock().isOccluding() ? 1 : 0)

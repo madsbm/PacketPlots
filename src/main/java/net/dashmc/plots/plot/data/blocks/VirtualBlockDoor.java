@@ -1,6 +1,6 @@
 package net.dashmc.plots.plot.data.blocks;
 
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.BlockBag;
 import net.dashmc.plots.utils.helpers.MethodWrapper;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
@@ -17,7 +17,7 @@ public class VirtualBlockDoor extends VirtualOpenableBlock<BlockDoor> {
 	}
 
 	@Override
-	public void onBlockHarvested(BlockDoor block, IEnvironment environment, BlockPosition pos, IBlockData data,
+	public void onBlockHarvested(BlockDoor block, IVirtualWorld environment, BlockPosition pos, IBlockData data,
 			BlockBag bag, TileEntity tile) {
 		bag.add(block.getDropType(data, null, 0));
 	}
@@ -29,7 +29,7 @@ public class VirtualBlockDoor extends VirtualOpenableBlock<BlockDoor> {
 	}
 
 	@Override
-	public void onRelatedUpdated(BlockDoor block, IEnvironment env, BlockPosition pos, BlockBag bag,
+	public void onRelatedUpdated(BlockDoor block, IVirtualWorld env, BlockPosition pos, BlockBag bag,
 			IBlockData newBlockData) {
 		if (newBlockData.get(BlockDoor.HALF) == BlockDoor.EnumDoorHalf.UPPER) {
 			BlockPosition lower = pos.down();
@@ -50,13 +50,13 @@ public class VirtualBlockDoor extends VirtualOpenableBlock<BlockDoor> {
 	}
 
 	@Override
-	public AxisAlignedBB getCollisionBoundingBox(BlockDoor block, IEnvironment env, BlockPosition pos,
+	public AxisAlignedBB getCollisionBoundingBox(BlockDoor block, IVirtualWorld env, BlockPosition pos,
 			IBlockData state) {
 		updateShape(block, env, pos);
 		return super.getCollisionBoundingBox(block, env, pos, state);
 	}
 
-	private void updateShape(BlockDoor block, IEnvironment env, BlockPosition pos) {
+	private void updateShape(BlockDoor block, IVirtualWorld env, BlockPosition pos) {
 		int facing = getFacingData(env, pos);
 
 		try {
@@ -67,7 +67,7 @@ public class VirtualBlockDoor extends VirtualOpenableBlock<BlockDoor> {
 		}
 	}
 
-	private static int getFacingData(IEnvironment env, BlockPosition blockposition) {
+	private static int getFacingData(IVirtualWorld env, BlockPosition blockposition) {
 		IBlockData iblockdata = env.getType(blockposition);
 		int i = iblockdata.getBlock().toLegacyData(iblockdata);
 		boolean flag = (i & 8) != 0;

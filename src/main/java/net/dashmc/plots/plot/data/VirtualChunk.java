@@ -1,6 +1,5 @@
 package net.dashmc.plots.plot.data;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -9,12 +8,10 @@ import java.util.Map;
 
 import org.apache.commons.lang.NotImplementedException;
 import lombok.Getter;
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.helpers.FieldAccess;
-import net.dashmc.plots.utils.misc.Debug;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.Block;
-import net.minecraft.server.v1_8_R3.BlockContainer;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.Chunk;
@@ -23,7 +20,6 @@ import net.minecraft.server.v1_8_R3.ChunkSection;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.IBlockData;
 import net.minecraft.server.v1_8_R3.IContainer;
-import net.minecraft.server.v1_8_R3.IInventory;
 import net.minecraft.server.v1_8_R3.Packet;
 import net.minecraft.server.v1_8_R3.TileEntity;
 import net.minecraft.server.v1_8_R3.World;
@@ -32,7 +28,9 @@ import net.minecraft.server.v1_8_R3.Chunk.EnumTileEntityState;
 
 /**
  * A chunk's part of an environment: the sections of the chunk the region is in,
- * which are copied from the real chunk, and their tile entities.
+ * which are copied from the real chunk, and their tile entities, which only
+ * the chunk keeps. What else happens when a block changes is up to the
+ * environment.
  */
 public class VirtualChunk {
 	private static final FieldAccess<Integer> nonEmptyBlockCountField = new FieldAccess<>(ChunkSection.class,
@@ -41,27 +39,25 @@ public class VirtualChunk {
 	private final @Getter ChunkCoordIntPair coordPair;
 
 	private Chunk chunk;
-	private final @Getter IEnvironment environment;
 	private final World world;
 	private final @Getter Section[] sections = new Section[16];
 	private final Map<BlockPosition, TileEntity> tileEntities = new HashMap<>();
 	private @Getter char sectionMask;
 
-	private VirtualChunk(IEnvironment environment, ChunkCoordIntPair coordPair) {
-		this.environment = environment;
+	private VirtualChunk(World world, CuboidRegion region, ChunkCoordIntPair coordPair) {
 		this.coordPair = coordPair;
-		this.world = environment.getRealWorld();
+		this.world = world;
 		this.chunk = ((WorldServer) world).chunkProviderServer.getChunkAt(coordPair.x, coordPair.z);
-		this.sectionMask = environment.getRegion().getSectionMask();
+		this.sectionMask = region.getSectionMask();
 	}
 
 	/**
-	 * Copies the chunk's part of the environment's region from the real world,
-	 * leaving out its tile entities.
+	 * Copies the chunk's part of the region from the real world, leaving out its
+	 * tile entities.
 	 */
-	public static VirtualChunk copyOf(IEnvironment environment, ChunkCoordIntPair coordPair) {
-		VirtualChunk virtualChunk = new VirtualChunk(environment, coordPair);
-		virtualChunk.copyRealSections();
+	public static VirtualChunk copyOf(World world, CuboidRegion region, ChunkCoordIntPair coordPair) {
+		VirtualChunk virtualChunk = new VirtualChunk(world, region, coordPair);
+		virtualChunk.copyRealSections(region);
 		return virtualChunk;
 	}
 
@@ -69,11 +65,11 @@ public class VirtualChunk {
 	 * Creates the chunk without sections, for EnvironmentStore to restore the
 	 * saved ones into.
 	 */
-	public static VirtualChunk withoutSections(IEnvironment environment, ChunkCoordIntPair coordPair) {
-		return new VirtualChunk(environment, coordPair);
+	public static VirtualChunk withoutSections(World world, CuboidRegion region, ChunkCoordIntPair coordPair) {
+		return new VirtualChunk(world, region, coordPair);
 	}
 
-	private void copyRealSections() {
+	private void copyRealSections(CuboidRegion region) {
 		ChunkSection[] real = chunk.getSections();
 		for (byte i = 0; i < 16; i++) {
 			if ((sectionMask & 1 << i) == 0)
@@ -82,13 +78,10 @@ public class VirtualChunk {
 			sections[i] = real[i] != null ? new Section(real[i]) : new Section(i);
 		}
 
-		Debug debug = environment.getDebug();
-		debug.log(() -> "vChunk sections: " + Arrays.toString(chunk.getSections()));
-		debug.log(() -> "tiles: " + chunk.getTileEntities());
-
-		// tile entities outside the region stay, as setBlock leaves them be
+		// tile entities outside the region stay
 		for (BlockPosition pos : chunk.getTileEntities().keySet()) {
-			setBlock(pos, Blocks.AIR.getBlockData());
+			if (region.includes(pos))
+				setBlockData(pos, Blocks.AIR.getBlockData());
 		}
 	}
 
@@ -113,25 +106,19 @@ public class VirtualChunk {
 	}
 
 	/**
-	 * @return whether the block changed, which it doesn't outside the environment
+	 * Only stores the block. The rest of what happens when a block changes, such as
+	 * its tile entity, is up to CuboidEnvironment#setBlock.
+	 *
+	 * @param pos a position in the chunk
+	 * @return false if the block is air in a section the chunk doesn't have, so
+	 *         nothing was stored
 	 */
-	public boolean setBlock(BlockPosition pos, IBlockData blockData) {
-		byte relX = (byte) (pos.getX() & 15);
-		byte relZ = (byte) (pos.getZ() & 15);
+	public boolean setBlockData(BlockPosition pos, IBlockData blockData) {
 		byte yPos = (byte) (pos.getY() >> 4);
 
-		if (!environment.contains(pos))
-			return false;
-
-		IBlockData currentBlock = getBlockData(pos);
-		if (currentBlock == blockData)
-			return false;
-
-		Block currBlock = currentBlock.getBlock();
-		Block newBlock = blockData.getBlock();
 		Section section = sections[yPos];
 		if (section == null) {
-			if (newBlock == Blocks.AIR)
+			if (blockData.getBlock() == Blocks.AIR)
 				return false;
 
 			ChunkSection real = getChunk().getSections()[yPos];
@@ -139,46 +126,12 @@ public class VirtualChunk {
 			sections[yPos] = section;
 			sectionMask |= 1 << yPos;
 		}
-		section.setBlock(relX, (byte) (pos.getY() & 15), relZ, blockData);
 
-		// like block1.remove(this.world, pos, currentBlock), which for a container
-		// also removes its tile entity
-		if (currBlock != newBlock) {
-			environment.getBlockHandlers().remove(environment, pos, currentBlock);
-
-			if (currBlock instanceof IContainer)
-				removeTileEntity(pos);
-		}
-
-		if (section.getBlock(relX, (byte) (pos.getY() & 15), relZ) != newBlock)
-			return false;
-
-		if (currBlock instanceof IContainer) {
-			TileEntity tileEntity = getTileEntity(pos, EnumTileEntityState.CHECK);
-			if (tileEntity != null)
-				tileEntity.E();
-		}
-
-		if (currBlock != newBlock && newBlock instanceof BlockContainer) {
-			environment.getBlockHandlers().onPlace(environment, pos, blockData);
-		}
-
-		if (newBlock instanceof IContainer) {
-			TileEntity tileEntity = getTileEntity(pos, EnumTileEntityState.CHECK);
-			if (tileEntity == null) {
-				tileEntity = ((IContainer) newBlock).a(world, newBlock.toLegacyData(blockData));
-				environment.setTileEntity(pos, tileEntity);
-			}
-
-			if (tileEntity != null)
-				tileEntity.E();
-		}
-
+		section.setBlock((byte) (pos.getX() & 15), (byte) (pos.getY() & 15), (byte) (pos.getZ() & 15), blockData);
 		return true;
 	}
 
 	public void sendTiles(EntityPlayer to) {
-		environment.getDebug().log(() -> "sending tiles in chunk to player: " + tileEntities.size());
 		Iterator<TileEntity> tiles = tileEntities.values().iterator();
 		while (tiles.hasNext()) {
 			Packet<?> updatePacket = tiles.next().getUpdatePacket();
@@ -189,7 +142,14 @@ public class VirtualChunk {
 		}
 	}
 
+	/**
+	 * Keeps the tile entity, if the block at the position has one, in place of
+	 * the one it had.
+	 */
 	public void setTileEntity(BlockPosition pos, TileEntity entity) {
+		if (entity == null || entity.x())
+			return;
+
 		entity.a(pos);
 		if (getBlockData(pos).getBlock() instanceof IContainer) {
 			if (tileEntities.containsKey(pos)) {
@@ -201,18 +161,17 @@ public class VirtualChunk {
 		}
 	}
 
-	// like World#t (removeTileEntity), which BlockContainer#remove calls
-	private void removeTileEntity(BlockPosition pos) {
+	/**
+	 * Like World#t (removeTileEntity), which BlockContainer#remove calls.
+	 *
+	 * @return the removed tile entity, or null if there was none
+	 */
+	public TileEntity removeTileEntity(BlockPosition pos) {
 		TileEntity tileEntity = tileEntities.remove(pos);
-		if (tileEntity == null)
-			return;
+		if (tileEntity != null)
+			tileEntity.y();
 
-		tileEntity.y();
-		environment.getTileEntities().remove(tileEntity);
-
-		// where vanilla drops the contents of a removed container, they go to the owner
-		if (tileEntity instanceof IInventory)
-			environment.getBlockBag().addAll(((IInventory) tileEntity).getContents());
+		return tileEntity;
 	}
 
 	public Collection<TileEntity> getTileEntities() {
@@ -235,7 +194,7 @@ public class VirtualChunk {
 
 				tileEntity = block.isTileEntity() ? ((IContainer) block).a(this.world, getBlockAsLegacyData(pos))
 						: null;
-				environment.setTileEntity(pos, tileEntity);
+				setTileEntity(pos, tileEntity);
 			} else if (entityState == EnumTileEntityState.QUEUED)
 				throw new NotImplementedException();
 		} else if (tileEntity.x()) {

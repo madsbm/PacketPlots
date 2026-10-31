@@ -5,17 +5,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.UUID;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
-import com.google.common.collect.Lists;
 
 import lombok.Getter;
 import lombok.Setter;
-import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.pipeline.RenderPipeline;
 import net.dashmc.plots.pipeline.RenderPipelineFactory;
@@ -25,12 +22,16 @@ import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.misc.Debug;
 import net.dashmc.plots.utils.misc.Utils;
+import net.minecraft.server.v1_8_R3.Block;
+import net.minecraft.server.v1_8_R3.BlockContainer;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Blocks;
 import net.minecraft.server.v1_8_R3.Chunk.EnumTileEntityState;
 import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
 import net.minecraft.server.v1_8_R3.EnumDirection;
 import net.minecraft.server.v1_8_R3.IBlockData;
+import net.minecraft.server.v1_8_R3.IContainer;
+import net.minecraft.server.v1_8_R3.IInventory;
 import net.minecraft.server.v1_8_R3.Material;
 import net.minecraft.server.v1_8_R3.Packet;
 import net.minecraft.server.v1_8_R3.TileEntity;
@@ -42,7 +43,6 @@ import net.minecraft.server.v1_8_R3.TileEntity;
 public class CuboidEnvironment implements IEnvironment {
 	private final HashSet<VirtualConnection> connections = new HashSet<>();
 	private final HashMap<Long, VirtualChunk> virtualChunks = new HashMap<>();
-	private @Getter final List<TileEntity> tileEntities = Lists.newArrayList();
 	private final net.minecraft.server.v1_8_R3.World nmsWorld;
 	private @Getter final UUID ownerUuid;
 	private @Getter final CuboidRegion region;
@@ -71,7 +71,9 @@ public class CuboidEnvironment implements IEnvironment {
 
 		for (ChunkCoordIntPair coord : region.getChunks()) {
 			debug.log(() -> "creating chunk @ " + coord.toString());
-			VirtualChunk chunk = VirtualChunk.copyOf(environment, coord);
+			VirtualChunk chunk = VirtualChunk.copyOf(environment.nmsWorld, region, coord);
+			debug.log(() -> "vChunk sections: " + Arrays.toString(chunk.getChunk().getSections()));
+			debug.log(() -> "tiles: " + chunk.getChunk().getTileEntities());
 			debug.log(() -> "created chunk " + chunk);
 			environment.addChunk(chunk);
 		}
@@ -90,21 +92,6 @@ public class CuboidEnvironment implements IEnvironment {
 
 	void addChunk(VirtualChunk chunk) {
 		virtualChunks.put(Utils.getChunkKey(chunk.getCoordPair().x, chunk.getCoordPair().z), chunk);
-	}
-
-	@Override
-	public EventDispatcher getEvents() {
-		return context.getEvents();
-	}
-
-	@Override
-	public VirtualBlockRegistry getBlockHandlers() {
-		return context.getBlockHandlers();
-	}
-
-	@Override
-	public Debug getDebug() {
-		return context.getDebug();
 	}
 
 	@Override
@@ -172,19 +159,7 @@ public class CuboidEnvironment implements IEnvironment {
 		if (!contains(pos))
 			return null;
 
-		TileEntity tileEntity = virtualChunks.get(Utils.getChunkKey(pos)).getTileEntity(pos,
-				EnumTileEntityState.IMMEDIATE);
-		if (tileEntity == null) {
-			for (int i = 0; i < tileEntities.size(); i++) {
-				TileEntity tile = tileEntities.get(i);
-				if (!tile.x() && tile.getPosition().equals(pos)) {
-					tileEntity = tile;
-					break;
-				}
-			}
-		}
-
-		return tileEntity;
+		return virtualChunks.get(Utils.getChunkKey(pos)).getTileEntity(pos, EnumTileEntityState.IMMEDIATE);
 	}
 
 	@Override
@@ -192,9 +167,7 @@ public class CuboidEnvironment implements IEnvironment {
 		if (!this.contains(pos))
 			return false;
 
-		VirtualChunk chunk = virtualChunks.get(Utils.getChunkKey(pos));
-		boolean succeeded = chunk.setBlock(pos, blockData);
-		if (!succeeded)
+		if (!changeBlock(virtualChunks.get(Utils.getChunkKey(pos)), pos, blockData))
 			return false;
 
 		if ((flags & NOTIFY_NEIGHBOURS) != 0) {
@@ -208,6 +181,64 @@ public class CuboidEnvironment implements IEnvironment {
 		return true;
 	}
 
+	/**
+	 * Changes the block in its chunk like Chunk#a: the old block is removed, which
+	 * for a container also removes its tile entity, and then the new one is
+	 * placed.
+	 *
+	 * @return whether the block changed
+	 */
+	private boolean changeBlock(VirtualChunk chunk, BlockPosition pos, IBlockData blockData) {
+		IBlockData currentBlock = chunk.getBlockData(pos);
+		if (currentBlock == blockData || !chunk.setBlockData(pos, blockData))
+			return false;
+
+		Block currBlock = currentBlock.getBlock();
+		Block newBlock = blockData.getBlock();
+		VirtualBlockRegistry blockHandlers = context.getBlockHandlers();
+
+		if (currBlock != newBlock) {
+			blockHandlers.remove(this, pos, currentBlock);
+
+			if (currBlock instanceof IContainer)
+				removeTileEntity(chunk, pos);
+		}
+
+		if (chunk.getType(pos) != newBlock)
+			return false;
+
+		if (currBlock instanceof IContainer) {
+			TileEntity tileEntity = chunk.getTileEntity(pos, EnumTileEntityState.CHECK);
+			if (tileEntity != null)
+				tileEntity.E();
+		}
+
+		if (currBlock != newBlock && newBlock instanceof BlockContainer) {
+			blockHandlers.onPlace(this, pos, blockData);
+		}
+
+		if (newBlock instanceof IContainer) {
+			TileEntity tileEntity = chunk.getTileEntity(pos, EnumTileEntityState.CHECK);
+			if (tileEntity == null) {
+				tileEntity = ((IContainer) newBlock).a(nmsWorld, newBlock.toLegacyData(blockData));
+				chunk.setTileEntity(pos, tileEntity);
+			}
+
+			if (tileEntity != null)
+				tileEntity.E();
+		}
+
+		return true;
+	}
+
+	private void removeTileEntity(VirtualChunk chunk, BlockPosition pos) {
+		TileEntity tileEntity = chunk.removeTileEntity(pos);
+
+		// where vanilla drops the contents of a removed container, they go to the owner
+		if (tileEntity instanceof IInventory)
+			blockBag.addAll(((IInventory) tileEntity).getContents());
+	}
+
 	private void notifyNeighbours(BlockPosition pos, BlockBag bag) {
 		notifyBlock(pos.west(), bag);
 		notifyBlock(pos.east(), bag);
@@ -219,7 +250,7 @@ public class CuboidEnvironment implements IEnvironment {
 
 	private void notifyBlock(BlockPosition pos, BlockBag bag) {
 		IBlockData ibd = getType(pos);
-		getBlockHandlers().onRelatedUpdated(ibd.getBlock(), this, pos, bag, ibd);
+		context.getBlockHandlers().onRelatedUpdated(ibd.getBlock(), this, pos, bag, ibd);
 	}
 
 	@Override
@@ -234,14 +265,6 @@ public class CuboidEnvironment implements IEnvironment {
 			return false;
 
 		return region.includes(x, y, z);
-	}
-
-	@Override
-	public void setTileEntity(BlockPosition blockPosition, TileEntity tileEntity) {
-		if (tileEntity != null && !tileEntity.x()) {
-			tileEntities.add(tileEntity);
-			virtualChunks.get(Utils.getChunkKey(blockPosition)).setTileEntity(blockPosition, tileEntity);
-		}
 	}
 
 	// same as World#getBlockPower and World#isEmpty

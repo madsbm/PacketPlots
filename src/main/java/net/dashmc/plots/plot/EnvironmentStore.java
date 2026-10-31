@@ -158,7 +158,7 @@ public class EnvironmentStore {
 		Collection<VirtualChunk> chunks = environment.getChunks();
 		stream.writeInt(chunks.size());
 		for (VirtualChunk chunk : chunks) {
-			writeChunk(chunk, stream);
+			writeChunk(chunk, region, stream);
 		}
 
 		writeBlockBag(environment.getBlockBag(), stream);
@@ -177,15 +177,15 @@ public class EnvironmentStore {
 
 		BlockPosition pos1 = readPosition(stream);
 		BlockPosition pos2 = readPosition(stream);
-		CuboidEnvironment environment = CuboidEnvironment.withoutChunks(owner, world, new CuboidRegion(pos1, pos2),
-				context);
+		CuboidRegion region = new CuboidRegion(pos1, pos2);
+		CuboidEnvironment environment = CuboidEnvironment.withoutChunks(owner, world, region, context);
 
 		int chunks = stream.readInt();
 		for (int i = 0; i < chunks; i++) {
-			environment.addChunk(readChunk(environment, stream));
+			environment.addChunk(readChunk(environment.getRealWorld(), region, stream));
 		}
 
-		environment.getDebug().log(() -> "Loaded chunks from save file: " + environment.getChunks().size());
+		context.getDebug().log(() -> "Loaded chunks from save file: " + environment.getChunks().size());
 		// TODO: if the loaded region != the saved one, delete blocks and add to block
 		// bag.
 
@@ -214,9 +214,9 @@ public class EnvironmentStore {
 
 	// chunks
 
-	private static void writeChunk(VirtualChunk chunk, DataOutputStream stream) throws IOException {
+	private void writeChunk(VirtualChunk chunk, CuboidRegion region, DataOutputStream stream) throws IOException {
 		ChunkCoordIntPair coordPair = chunk.getCoordPair();
-		Debug debug = chunk.getEnvironment().getDebug();
+		Debug debug = context.getDebug();
 
 		stream.writeInt(coordPair.x);
 		stream.writeInt(coordPair.z);
@@ -226,7 +226,7 @@ public class EnvironmentStore {
 			if (section == null)
 				continue;
 
-			writeSection(chunk, section, stream);
+			writeSection(chunk, region, section, stream);
 		}
 
 		Collection<TileEntity> tiles = chunk.getTileEntities();
@@ -241,21 +241,22 @@ public class EnvironmentStore {
 		}
 	}
 
-	private static VirtualChunk readChunk(IEnvironment environment, DataInputStream stream) throws IOException {
+	private VirtualChunk readChunk(net.minecraft.server.v1_8_R3.World world, CuboidRegion region,
+			DataInputStream stream) throws IOException {
 		ChunkCoordIntPair coordPair = new ChunkCoordIntPair(stream.readInt(), stream.readInt());
-		Debug debug = environment.getDebug();
+		Debug debug = context.getDebug();
 
 		debug.log(() -> "Deserializing chunk @ " + coordPair.x + " , " + coordPair.z);
 
-		VirtualChunk chunk = VirtualChunk.withoutSections(environment, coordPair);
-		char sectionMask = environment.getRegion().getSectionMask();
+		VirtualChunk chunk = VirtualChunk.withoutSections(world, region, coordPair);
+		char sectionMask = region.getSectionMask();
 		debug.log(() -> "Section mask for the chunk: " + Integer.toBinaryString(sectionMask));
 		debug.log(() -> "Sections for chunk: " + Arrays.toString(chunk.getChunk().getSections()));
 		for (byte i = 0; i < 16; i++) {
 			if ((sectionMask & (1 << i)) == 0)
 				continue;
 
-			readSection(chunk, i, stream);
+			readSection(chunk, region, i, stream);
 		}
 
 		int tiles = stream.readInt();
@@ -265,19 +266,18 @@ public class EnvironmentStore {
 
 			debug.log(() -> "Loading tile with NBT " + compound.toString());
 
-			environment.getTileEntities().add(tile);
 			chunk.setTileEntity(tile.getPosition(), tile);
 		}
 
 		return chunk;
 	}
 
-	private static void writeSection(VirtualChunk chunk, Section section, DataOutputStream stream)
-			throws IOException {
+	private static void writeSection(VirtualChunk chunk, CuboidRegion region, Section section,
+			DataOutputStream stream) throws IOException {
 		stream.writeChar(section.getNonEmptyBlockCount());
 
 		char[] blockIds = section.getBlockIds();
-		forEachInSection(chunk, section.getChunkY(),
+		forEachInSection(chunk, region, section.getChunkY(),
 				(x, y, z) -> stream.writeChar(blockIds[Utils.getSectionIndex(x, y, z)]));
 	}
 
@@ -285,23 +285,23 @@ public class EnvironmentStore {
 	 * Reads a section into the chunk. The positions outside the region, which
 	 * aren't saved, are copied from the real chunk.
 	 */
-	private static void readSection(VirtualChunk chunk, byte chunkY, DataInputStream stream) throws IOException {
+	private static void readSection(VirtualChunk chunk, CuboidRegion region, byte chunkY, DataInputStream stream)
+			throws IOException {
 		char nonEmptyBlockCount = stream.readChar();
 
 		ChunkSection real = chunk.getChunk().getSections()[chunkY];
 		char[] blockIds = real != null ? real.getIdArray().clone() : new char[4096];
-		forEachInSection(chunk, chunkY, (x, y, z) -> blockIds[Utils.getSectionIndex(x, y, z)] = stream.readChar());
+		forEachInSection(chunk, region, chunkY, (x, y, z) -> blockIds[Utils.getSectionIndex(x, y, z)] = stream.readChar());
 
 		chunk.restoreSection(chunkY, nonEmptyBlockCount, blockIds);
 	}
 
 	/**
-	 * Calls the consumer for each position in both the environment's region and
-	 * the section of the chunk.
+	 * Calls the consumer for each position in both the region and the section of
+	 * the chunk.
 	 */
-	private static void forEachInSection(VirtualChunk chunk, int chunkY, CoordinateIO consumer)
-			throws IOException {
-		CuboidRegion region = chunk.getEnvironment().getRegion();
+	private static void forEachInSection(VirtualChunk chunk, CuboidRegion region, int chunkY,
+			CoordinateIO consumer) throws IOException {
 		ChunkCoordIntPair coordPair = chunk.getCoordPair();
 
 		try {

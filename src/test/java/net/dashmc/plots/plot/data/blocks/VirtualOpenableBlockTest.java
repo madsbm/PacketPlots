@@ -7,10 +7,11 @@ import static org.junit.Assert.assertTrue;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import net.dashmc.plots.plot.FakeEnvironment;
+import net.dashmc.plots.plot.FakeWorld;
 import net.dashmc.plots.plot.data.BuiltinHandlers;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.utils.helpers.FieldAccess;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.BlockDoor;
 import net.minecraft.server.v1_8_R3.BlockFenceGate;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -29,14 +30,14 @@ public class VirtualOpenableBlockTest {
 	private static final int OPEN_SOUND = 1003;
 	private static final int CLOSE_SOUND = 1006;
 
-	private final FakeEnvironment env = new FakeEnvironment(blockHandlers);
+	private final FakeWorld env = new FakeWorld();
 	private final BlockPosition pos = new BlockPosition(0, 64, 0);
 
 	@BeforeClass
 	public static void bootstrap() {
 		// registers the blocks and items, like the server does on startup
 		DispenserRegistry.c();
-		BuiltinHandlers.registerBlocks(blockHandlers);
+		BuiltinHandlers.registerBlocks(blockHandlers, Debug.OFF);
 	}
 
 	/**

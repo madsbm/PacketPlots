@@ -1,6 +1,5 @@
 package net.dashmc.plots.plot.data.blocks;
 
-import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.minecraft.server.v1_8_R3.Block;
@@ -28,7 +27,7 @@ public abstract class VirtualOpenableBlock<T extends Block> extends VirtualBlock
 	}
 
 	@Override
-	public boolean interact(T block, IEnvironment environment, BlockPosition pos, IBlockData data,
+	public boolean interact(T block, IVirtualWorld environment, BlockPosition pos, IBlockData data,
 			EntityHuman human, EnumDirection direction, float f, float f1, float f2) {
 		// iron doors and trapdoors only open by redstone
 		if (block.getMaterial() == Material.ORE)

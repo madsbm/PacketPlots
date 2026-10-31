@@ -10,6 +10,7 @@ import net.dashmc.plots.packets.extensions.VirtualBlockChangePacket;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.plot.interaction.InteractionHandler;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.EnumDirection;
@@ -24,6 +25,7 @@ import net.minecraft.server.v1_8_R3.Slot;
 @RequiredArgsConstructor
 public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPlayInBlockPlace> {
 	private final InteractionHandler interactions;
+	private final Debug debug;
 
 	@Override
 	public boolean intercept(PacketPlayInBlockPlace packet, VirtualConnection conn) {
@@ -57,12 +59,12 @@ public class BlockPlacementPacketInterceptor extends PacketInterceptor<PacketPla
 					+ NumberConversions.square(eyeLoc.getY() - pos.getY())
 					+ NumberConversions.square(eyeLoc.getZ() - pos.getZ());
 
-			env.getDebug().log(() -> "Reach dist: " + reachDist);
+			debug.log(() -> "Reach dist: " + reachDist);
 
 			if (reachDist > (player.getBukkitEntity().getGameMode() == GameMode.CREATIVE ? 7 * 7 : 6 * 6))
 				return true;
 
-			env.getDebug().log(() -> "Distance from block: "
+			debug.log(() -> "Distance from block: "
 					+ player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D));
 
 			if (player.e((double) pos.getX() + 0.5D, (double) pos.getY() + 0.5D, (double) pos.getZ() + 0.5D) < 64D) {

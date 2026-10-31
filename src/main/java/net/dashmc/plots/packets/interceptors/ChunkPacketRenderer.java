@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.VirtualConnection;
 import net.dashmc.plots.plot.data.VirtualChunk;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 
 /**
@@ -20,6 +21,7 @@ public class ChunkPacketRenderer {
 	// sends the chunks' tile entities, which happens on the main thread
 	private final Executor mainThread;
 	private final Logger logger;
+	private final Debug debug;
 
 	/**
 	 * Renders the chunk if it's virtualized, and sends its tile entities after it.
@@ -47,7 +49,10 @@ public class ChunkPacketRenderer {
 			return null;
 		}
 
-		mainThread.execute(() -> chunk.sendTiles(conn.getPlayer()));
+		mainThread.execute(() -> {
+			debug.log(() -> "sending tiles in chunk to player: " + chunk.getTileEntities().size());
+			chunk.sendTiles(conn.getPlayer());
+		});
 		return map;
 	}
 }

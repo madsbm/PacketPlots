@@ -12,6 +12,8 @@ import net.dashmc.plots.plot.data.items.VirtualItemBlock;
 import net.dashmc.plots.plot.data.items.VirtualItemDoor;
 import net.dashmc.plots.plot.data.items.VirtualItemSkull;
 import net.dashmc.plots.plot.data.items.VirtualItemStep;
+import net.dashmc.plots.plot.interaction.PlacementRules;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.BlockAir;
 import net.minecraft.server.v1_8_R3.BlockChest;
 import net.minecraft.server.v1_8_R3.BlockDoor;
@@ -34,24 +36,29 @@ import net.minecraft.server.v1_8_R3.ItemWaterLily;
  */
 public class BuiltinHandlers {
 
-	public static void registerBlocks(VirtualBlockRegistry blocks) {
+	public static void registerBlocks(VirtualBlockRegistry blocks, Debug debug) {
 		blocks.register(BlockAir.class, new VirtualBlockAir());
 		blocks.register(BlockChest.class, new VirtualChestBlock());
 		blocks.register(BlockDoor.class, new VirtualBlockDoor());
 		blocks.register(BlockEnderChest.class, new VirtualEnderChestBlock());
-		blocks.register(BlockFenceGate.class, new VirtualFenceGateBlock());
+		blocks.register(BlockFenceGate.class, new VirtualFenceGateBlock(debug));
 		blocks.register(BlockSkull.class, new VirtualSkullBlock());
 		blocks.register(BlockLeaves2.class, new VirtualBlockLeaves2());
 		blocks.register(BlockTrapdoor.class, new VirtualBlockTrapDoor());
 	}
 
-	public static void registerItems(VirtualItemRegistry items) {
+	/**
+	 * @param blocks    how the blocks the items place behave
+	 * @param placement whether the items may place their blocks
+	 */
+	public static void registerItems(VirtualItemRegistry items, VirtualBlockRegistry blocks,
+			PlacementRules placement, Debug debug) {
 		// also handles ItemBlock's subclasses without a handler of their own, e.g. wool,
 		// leaves, anvils and pistons
-		VirtualItemBlock itemBlock = new VirtualItemBlock();
+		VirtualItemBlock itemBlock = new VirtualItemBlock(blocks, placement, debug);
 		items.register(ItemBlock.class, itemBlock);
-		items.register(ItemDoor.class, new VirtualItemDoor());
-		items.register(ItemSkull.class, new VirtualItemSkull());
+		items.register(ItemDoor.class, new VirtualItemDoor(blocks, placement, debug));
+		items.register(ItemSkull.class, new VirtualItemSkull(blocks));
 		// places a slab like an ItemBlock, unless it makes a double slab
 		items.register(ItemStep.class, new VirtualItemStep(itemBlock));
 

@@ -6,6 +6,9 @@ import static org.junit.Assert.assertSame;
 
 import org.junit.Test;
 
+import net.dashmc.plots.plot.interaction.PlacementRules;
+import net.dashmc.plots.utils.misc.Debug;
+
 import net.minecraft.server.v1_8_R3.ItemAnvil;
 import net.minecraft.server.v1_8_R3.ItemBanner;
 import net.minecraft.server.v1_8_R3.ItemBlock;
@@ -24,7 +27,10 @@ public class VirtualItemTest {
 
 	private static VirtualItemRegistry builtinItems() {
 		VirtualItemRegistry items = new VirtualItemRegistry();
-		BuiltinHandlers.registerItems(items);
+		VirtualBlockRegistry blocks = new VirtualBlockRegistry();
+		PlacementRules placement = new PlacementRules(blocks, event -> {
+		}, Debug.OFF);
+		BuiltinHandlers.registerItems(items, blocks, placement, Debug.OFF);
 		return items;
 	}
 

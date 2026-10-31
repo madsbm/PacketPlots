@@ -7,10 +7,12 @@ import lombok.Getter;
 import lombok.Setter;
 import net.dashmc.plots.events.ACRegionEnterExit;
 import net.dashmc.plots.events.EnvironmentEnterExit;
+import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.packets.PacketInjector;
 import net.dashmc.plots.packets.extensions.VirtualMapChunkPacket;
 import net.dashmc.plots.player.VirtualPlayerInteractManager;
 import net.dashmc.plots.plot.data.VirtualChunk;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
@@ -18,20 +20,23 @@ import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk.ChunkMap;
 /**
  * A player's view of a virtual environment: which environment they're shown,
  * and where they are in relation to it. While it's open, the player has a
- * packet handler and a VirtualPlayerInteractManager.
+ * packet handler and a VirtualPlayerInteractManager. Opened by a
+ * ConnectionFactory.
  */
 @Getter
 public class VirtualConnection {
 	private @Setter boolean moved = false;
 
-	private VirtualConnection(EntityPlayer player, IEnvironment environment, Location safeLocation,
-			PacketInjector packets, boolean forceChunkMapSend) {
+	VirtualConnection(EntityPlayer player, IEnvironment environment, Location safeLocation,
+			PacketInjector packets, boolean forceChunkMapSend, EventDispatcher events, Debug debug) {
 		this.player = player;
 		this.environment = environment;
 		this.original = environment;
 		this.safeLocation = safeLocation;
 		this.packets = packets;
 		this.forceChunkMapSend = forceChunkMapSend;
+		this.events = events;
+		this.debug = debug;
 
 		open();
 	}
@@ -46,6 +51,8 @@ public class VirtualConnection {
 	private final @Getter(AccessLevel.NONE) PacketInjector packets;
 	// renders chunks before sending them, for plugins that read them on the way
 	private final @Getter(AccessLevel.NONE) boolean forceChunkMapSend;
+	private final @Getter(AccessLevel.NONE) EventDispatcher events;
+	private final @Getter(AccessLevel.NONE) Debug debug;
 	// keeps track of the player digging blocks in the environment
 	private VirtualPlayerInteractManager interactManager;
 	private boolean insideEnvironment;
@@ -56,7 +63,7 @@ public class VirtualConnection {
 			return;
 
 		insideACRegion = to;
-		environment.getEvents().call(new ACRegionEnterExit(this, to));
+		events.call(new ACRegionEnterExit(this, to));
 	}
 
 	public void setInsideEnvironment(boolean to) {
@@ -64,7 +71,7 @@ public class VirtualConnection {
 			return;
 
 		insideEnvironment = to;
-		environment.getEvents().call(new EnvironmentEnterExit(this, to));
+		events.call(new EnvironmentEnterExit(this, to));
 	}
 
 	@Setter
@@ -82,7 +89,7 @@ public class VirtualConnection {
 			return null;
 
 		setVisiting(!other.equals(original));
-		environment.getDebug().log(() -> "teleporting player to " + safeLocation);
+		debug.log(() -> "teleporting player to " + safeLocation);
 		player.getBukkitEntity().teleport(safeLocation);
 
 		this.environment = other;
@@ -107,7 +114,7 @@ public class VirtualConnection {
 		if (this.injected && !forceChunkMapSend) {
 			map = null;
 		} else {
-			map = vChunk.getEnvironment().getRenderPipeline().render(vChunk);
+			map = environment.getRenderPipeline().render(vChunk);
 		}
 
 		return new VirtualMapChunkPacket(vChunk.getCoordPair().x, vChunk.getCoordPair().z, map).getPacket();
@@ -118,17 +125,6 @@ public class VirtualConnection {
 			PacketPlayOutMapChunk chunkPacket = getRenderPacket(chunk);
 			player.playerConnection.sendPacket(chunkPacket);
 		});
-	}
-
-	/**
-	 * @param packets           puts the connection's packet handler in the
-	 *                          player's pipeline
-	 * @param forceChunkMapSend whether to render chunks before sending them, for
-	 *                          plugins that read them on the way
-	 */
-	public static VirtualConnection establish(EntityPlayer player, IEnvironment environment,
-			Location safeLocation, PacketInjector packets, boolean forceChunkMapSend) {
-		return new VirtualConnection(player, environment, safeLocation, packets, forceChunkMapSend);
 	}
 
 	private void open() {

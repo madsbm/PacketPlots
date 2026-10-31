@@ -1,6 +1,6 @@
 package net.dashmc.plots.plot.data.blocks;
 
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.BlockTrapdoor;
@@ -13,13 +13,13 @@ public class VirtualBlockTrapDoor extends VirtualOpenableBlock<BlockTrapdoor> {
 	}
 
 	@Override
-	public AxisAlignedBB getCollisionBoundingBox(BlockTrapdoor block, IEnvironment env, BlockPosition pos,
+	public AxisAlignedBB getCollisionBoundingBox(BlockTrapdoor block, IVirtualWorld env, BlockPosition pos,
 			IBlockData state) {
 		this.updateShape(block, env, pos);
 		return super.getCollisionBoundingBox(block, env, pos, state);
 	}
 
-	private void updateShape(BlockTrapdoor block, IEnvironment env, BlockPosition pos) {
+	private void updateShape(BlockTrapdoor block, IVirtualWorld env, BlockPosition pos) {
 		block.d(env.getType(pos));
 	}
 

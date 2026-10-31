@@ -42,6 +42,7 @@ import net.dashmc.plots.packets.interceptors.MapChunkBulkPacketInterceptor;
 import net.dashmc.plots.packets.interceptors.MapChunkPacketInterceptor;
 import net.dashmc.plots.packets.interceptors.MovementPacketInterceptor;
 import net.dashmc.plots.packets.interceptors.WindowClosePacketInterceptor;
+import net.dashmc.plots.plot.ConnectionFactory;
 import net.dashmc.plots.plot.EnvironmentContext;
 import net.dashmc.plots.plot.EnvironmentManager;
 import net.dashmc.plots.plot.EnvironmentStore;
@@ -49,6 +50,7 @@ import net.dashmc.plots.plot.data.BuiltinHandlers;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualItemRegistry;
 import net.dashmc.plots.plot.interaction.InteractionHandler;
+import net.dashmc.plots.plot.interaction.PlacementRules;
 import net.dashmc.plots.utils.CuboidRegion;
 import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.PacketPlayInBlockDig;
@@ -101,19 +103,21 @@ public class PacketPlots extends JavaPlugin {
 		compatibility = loadCompatibility(acDisabledRegion, debug);
 
 		VirtualBlockRegistry blockHandlers = new VirtualBlockRegistry();
-		BuiltinHandlers.registerBlocks(blockHandlers);
+		BuiltinHandlers.registerBlocks(blockHandlers, debug);
 		VirtualItemRegistry itemHandlers = new VirtualItemRegistry();
-		BuiltinHandlers.registerItems(itemHandlers);
+		BuiltinHandlers.registerItems(itemHandlers, blockHandlers, new PlacementRules(blockHandlers, events, debug),
+				debug);
 
-		InterceptorRegistry interceptors = registerInterceptors(new InteractionHandler(itemHandlers), mainThread,
-				acDisabledRegion);
+		InteractionHandler interactions = new InteractionHandler(itemHandlers, blockHandlers, events, debug);
+		InterceptorRegistry interceptors = registerInterceptors(interactions, mainThread, acDisabledRegion, events,
+				debug);
 
 		EnvironmentContext context = new EnvironmentContext(events, blockHandlers, debug);
 		EnvironmentStore store = new EnvironmentStore(new File(this.getDataFolder(), "data"),
 				getDescription().getVersion(), getServer()::getWorld, context, getLogger());
-		environmentManager = new EnvironmentManager(store, plotConfig, context,
-				new PacketInjector(interceptors, getLogger()),
-				compatibility.isActive(ChunkMapSendCompatibility.class));
+		ConnectionFactory connectionFactory = new ConnectionFactory(new PacketInjector(interceptors, getLogger()),
+				plotConfig.getSafeLocation(), compatibility.isActive(ChunkMapSendCompatibility.class), events, debug);
+		environmentManager = new EnvironmentManager(store, plotConfig, context, connectionFactory);
 
 		ConnectionListener connectionListener = ConnectionListener.register(this, environmentManager);
 		registerCommands();
@@ -149,18 +153,18 @@ public class PacketPlots extends JavaPlugin {
 	 * @param acDisabledRegion where anticheats are disabled
 	 */
 	private InterceptorRegistry registerInterceptors(InteractionHandler interactions, Executor mainThread,
-			CuboidRegion acDisabledRegion) {
-		ChunkPacketRenderer chunkRenderer = new ChunkPacketRenderer(mainThread, getLogger());
+			CuboidRegion acDisabledRegion, EventDispatcher events, Debug debug) {
+		ChunkPacketRenderer chunkRenderer = new ChunkPacketRenderer(mainThread, getLogger(), debug);
 
 		InterceptorRegistry interceptors = new InterceptorRegistry();
 		interceptors.register(PacketPlayOutMapChunkBulk.class, new MapChunkBulkPacketInterceptor(chunkRenderer));
 		interceptors.register(PacketPlayOutMapChunk.class, new MapChunkPacketInterceptor(chunkRenderer));
 		interceptors.register(PacketPlayInBlockDig.class, new BlockDigPacketInterceptor(interactions));
-		interceptors.register(PacketPlayInBlockPlace.class, new BlockPlacementPacketInterceptor(interactions));
+		interceptors.register(PacketPlayInBlockPlace.class, new BlockPlacementPacketInterceptor(interactions, debug));
 		interceptors.register(PacketPlayInCloseWindow.class, new WindowClosePacketInterceptor(getLogger()));
 		// also gets the look, position and position-look packets, which subclass
 		// PacketPlayInFlying
-		interceptors.register(PacketPlayInFlying.class, new MovementPacketInterceptor(acDisabledRegion));
+		interceptors.register(PacketPlayInFlying.class, new MovementPacketInterceptor(acDisabledRegion, events));
 		return interceptors;
 	}
 

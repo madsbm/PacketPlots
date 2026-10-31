@@ -1,6 +1,6 @@
 package net.dashmc.plots.plot.data.blocks;
 
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.BlockBag;
 import net.dashmc.plots.plot.data.VirtualBlock;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
@@ -17,7 +17,7 @@ import net.minecraft.server.v1_8_R3.TileEntitySkull;
 public class VirtualSkullBlock extends VirtualBlock<BlockSkull> {
 
 	@Override
-	public void onBlockHarvested(BlockSkull block, IEnvironment environment, BlockPosition pos, IBlockData data,
+	public void onBlockHarvested(BlockSkull block, IVirtualWorld environment, BlockPosition pos, IBlockData data,
 			BlockBag bag, TileEntity tile) {
 		ItemStack skullItem = new ItemStack(Items.SKULL, 1, getDropData(environment, pos));
 		TileEntitySkull skullTile = (TileEntitySkull) environment.getTileEntity(pos);
@@ -32,13 +32,13 @@ public class VirtualSkullBlock extends VirtualBlock<BlockSkull> {
 	}
 
 	@Override
-	public AxisAlignedBB getCollisionBoundingBox(BlockSkull block, IEnvironment env, BlockPosition pos,
+	public AxisAlignedBB getCollisionBoundingBox(BlockSkull block, IVirtualWorld env, BlockPosition pos,
 			IBlockData state) {
 		block.updateShape(env, pos);
 		return super.getCollisionBoundingBox(block, env, pos, state);
 	}
 
-	public int getDropData(IEnvironment environment, BlockPosition blockposition) {
+	public int getDropData(IVirtualWorld environment, BlockPosition blockposition) {
 		TileEntity tileentity = environment.getTileEntity(blockposition);
 
 		return tileentity instanceof TileEntitySkull ? ((TileEntitySkull) tileentity).getSkullType()

@@ -12,13 +12,13 @@ import org.bukkit.entity.Player;
 
 import net.dashmc.plots.packets.extensions.VirtualMapChunkPacket;
 import net.dashmc.plots.pipeline.RenderPipeline;
-import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.dashmc.plots.utils.helpers.MethodWrapper;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.Chunk;
+import net.minecraft.server.v1_8_R3.Chunk.EnumTileEntityState;
 import net.minecraft.server.v1_8_R3.ChunkCoordIntPair;
 import net.minecraft.server.v1_8_R3.ChunkSection;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
@@ -110,7 +110,6 @@ public class Paster {
 
 	public static List<Packet<?>> initializeTiles(VirtualChunk vChunk, Chunk target) {
 		List<Packet<?>> updatePackets = new LinkedList<>();
-		IEnvironment env = vChunk.getEnvironment();
 
 		int srcX = vChunk.getCoordPair().x << 4, srcZ = vChunk.getCoordPair().z << 4;
 		int dstX = target.locX << 4, dstZ = target.locZ << 4;
@@ -131,7 +130,8 @@ public class Paster {
 				int y = baseY + ((idx >> 8) & 0xF);
 				int z = (idx >> 4) & 0xF;
 
-				TileEntity source = env.getTileEntity(new BlockPosition(srcX + x, y, srcZ + z));
+				TileEntity source = vChunk.getTileEntity(new BlockPosition(srcX + x, y, srcZ + z),
+						EnumTileEntityState.CHECK);
 				if (source == null)
 					continue;
 

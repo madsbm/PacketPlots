@@ -1,6 +1,7 @@
 package net.dashmc.plots.plot.data.blocks;
 
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.BlockFenceGate;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -9,16 +10,18 @@ import net.minecraft.server.v1_8_R3.EnumDirection;
 import net.minecraft.server.v1_8_R3.IBlockData;
 
 public class VirtualFenceGateBlock extends VirtualOpenableBlock<BlockFenceGate> {
+	private final Debug debug;
 
-	public VirtualFenceGateBlock() {
+	public VirtualFenceGateBlock(Debug debug) {
 		super(BlockFenceGate.OPEN);
+		this.debug = debug;
 	}
 
 	@Override
-	public AxisAlignedBB getCollisionBoundingBox(BlockFenceGate block, IEnvironment env, BlockPosition pos,
+	public AxisAlignedBB getCollisionBoundingBox(BlockFenceGate block, IVirtualWorld env, BlockPosition pos,
 			IBlockData state) {
 
-		env.getDebug().log(() -> block.getClass() + ", " + state.toString());
+		debug.log(() -> block.getClass() + ", " + state.toString());
 
 		return block.a(null, pos, state);
 	}

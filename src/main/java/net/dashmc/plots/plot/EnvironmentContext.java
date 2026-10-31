@@ -7,8 +7,10 @@ import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.utils.misc.Debug;
 
 /**
- * What the plugin gives every environment, which the environment passes on
- * through {@link IEnvironment} to what happens in it.
+ * What the plugin gives every CuboidEnvironment for its own use: what calls the
+ * events of its block bag, how its blocks behave and where it logs. The
+ * environment doesn't pass these on; whatever else needs them gets them
+ * itself.
  */
 @Getter
 @RequiredArgsConstructor

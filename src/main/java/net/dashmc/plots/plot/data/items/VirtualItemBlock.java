@@ -1,8 +1,12 @@
 package net.dashmc.plots.plot.data.items;
 
+import lombok.RequiredArgsConstructor;
 import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
+import net.dashmc.plots.plot.data.VirtualBlockRegistry;
 import net.dashmc.plots.plot.data.VirtualItem;
 import net.dashmc.plots.plot.interaction.PlacementRules;
+import net.dashmc.plots.utils.misc.Debug;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityHuman;
@@ -13,7 +17,11 @@ import net.minecraft.server.v1_8_R3.ItemStack;
 import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import net.minecraft.server.v1_8_R3.TileEntity;
 
+@RequiredArgsConstructor
 public class VirtualItemBlock extends VirtualItem<ItemBlock> {
+	private final VirtualBlockRegistry blocks;
+	private final PlacementRules placement;
+	private final Debug debug;
 
 	@Override
 	public boolean interactWith(ItemStack item, EntityHuman player, IEnvironment environment, BlockPosition pos,
@@ -21,14 +29,14 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 		IBlockData ibd = isBorderPlace ? environment.getRealWorld().getType(pos) : environment.getType(pos);
 		Block block = ibd.getBlock();
 
-		if (!environment.getBlockHandlers().shouldRemainAt(block, environment, pos))
+		if (!blocks.shouldRemainAt(block, environment, pos))
 			pos = pos.shift(direction);
 		else if (isBorderPlace)
 			return false;
 
 		Block toPlace = ((ItemBlock) item.getItem()).d();
 		// not lazy, as pos is reassigned above
-		environment.getDebug().log(
+		debug.log(
 				"Trying to place at " + pos.toString() + " ( " + toPlace.toString() + " on " + block.toString() + " )");
 
 		if (item.count == 0)
@@ -37,7 +45,7 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 		if (!PlacementRules.canPlace(environment, pos, direction, item, player))
 			return false;
 
-		if (!PlacementRules.isBuildable(environment, toPlace, pos, false, direction, player, item))
+		if (!placement.isBuildable(environment, toPlace, pos, false, direction, player, item))
 			return false;
 
 		int data = item.getItem().filterData(item.getData());
@@ -48,7 +56,7 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 		IBlockData blockData = environment.getType(pos);
 		if (blockData.getBlock() == toPlace) {
 			initializeBlock(environment, pos, item);
-			environment.getBlockHandlers().postPlace(toPlace, environment, pos, blockData, player, item);
+			blocks.postPlace(toPlace, environment, pos, blockData, player, item);
 		}
 		item.count--;
 
@@ -56,7 +64,7 @@ public class VirtualItemBlock extends VirtualItem<ItemBlock> {
 	}
 
 	// https://github.com/Attano/Spigot-1.8/blob/9db48bc15e203179554b8d992ca6b0a528c8d300/net/minecraft/server/v1_8_R3/ItemBlock.java
-	public static boolean initializeBlock(IEnvironment env, BlockPosition pos, ItemStack itemStack) {
+	public static boolean initializeBlock(IVirtualWorld env, BlockPosition pos, ItemStack itemStack) {
 		if (!(itemStack.hasTag() && itemStack.getTag().hasKeyOfType("BlockEntityTag", 10)))
 			return false;
 		TileEntity tile = env.getTileEntity(pos);

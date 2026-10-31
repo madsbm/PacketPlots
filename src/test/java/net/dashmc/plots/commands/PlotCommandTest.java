@@ -13,7 +13,7 @@ public class PlotCommandTest {
 	// okaeri creates the command like this when PacketPlots registers it
 	@Test
 	public void getsTheEnvironmentManagerFromTheInjector() {
-		EnvironmentManager environments = new EnvironmentManager(null, null, null, null, false);
+		EnvironmentManager environments = new EnvironmentManager(null, null, null, null);
 		OkaeriInjector injector = OkaeriInjector.create(true);
 		injector.registerInjectable("environments", environments);
 

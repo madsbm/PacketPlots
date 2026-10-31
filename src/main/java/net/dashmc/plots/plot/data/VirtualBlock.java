@@ -3,7 +3,7 @@ package net.dashmc.plots.plot.data;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-import net.dashmc.plots.plot.IEnvironment;
+import net.dashmc.plots.plot.IVirtualWorld;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.Block;
 import net.minecraft.server.v1_8_R3.BlockPosition;
@@ -22,31 +22,31 @@ import net.minecraft.server.v1_8_R3.TileEntity;
  */
 public abstract class VirtualBlock<T extends Block> {
 
-	public boolean interact(T block, IEnvironment environment, BlockPosition blockposition,
+	public boolean interact(T block, IVirtualWorld environment, BlockPosition blockposition,
 			IBlockData iblockdata, EntityHuman entityhuman, EnumDirection enumdirection, float f, float f1, float f2) {
 		return false;
 	}
 
-	public void onPlace(T block, IEnvironment environment, BlockPosition pos, IBlockData blockData) {
+	public void onPlace(T block, IVirtualWorld environment, BlockPosition pos, IBlockData blockData) {
 	}
 
-	public void remove(T block, IEnvironment environment, BlockPosition pos, IBlockData blockData) {
+	public void remove(T block, IVirtualWorld environment, BlockPosition pos, IBlockData blockData) {
 	}
 
-	public boolean canPlace(T block, IEnvironment environment, BlockPosition pos, EnumDirection direction,
+	public boolean canPlace(T block, IVirtualWorld environment, BlockPosition pos, EnumDirection direction,
 			ItemStack itemStack) {
 		return canPlace(block, environment, pos, direction);
 	}
 
-	public boolean canPlace(T block, IEnvironment environment, BlockPosition pos, EnumDirection direction) {
+	public boolean canPlace(T block, IVirtualWorld environment, BlockPosition pos, EnumDirection direction) {
 		return canPlace(block, environment, pos);
 	}
 
-	public boolean canPlace(T block, IEnvironment environment, BlockPosition pos) {
+	public boolean canPlace(T block, IVirtualWorld environment, BlockPosition pos) {
 		return environment.getType(pos).getBlock().getMaterial().isReplaceable();
 	}
 
-	public void onRelatedUpdated(T block, IEnvironment env, BlockPosition pos, BlockBag bag,
+	public void onRelatedUpdated(T block, IVirtualWorld env, BlockPosition pos, BlockBag bag,
 			IBlockData newBlockData) {
 	}
 
@@ -54,7 +54,7 @@ public abstract class VirtualBlock<T extends Block> {
 	 * Puts the block in the bag as its own item. A block without one, such as a
 	 * double slab or a sign, gives what vanilla drops instead.
 	 */
-	public void onBlockHarvested(T block, IEnvironment environment, BlockPosition pos, IBlockData data,
+	public void onBlockHarvested(T block, IVirtualWorld environment, BlockPosition pos, IBlockData data,
 			BlockBag bag,
 			TileEntity tile) {
 		Item item = getItemType(block, data);
@@ -73,7 +73,7 @@ public abstract class VirtualBlock<T extends Block> {
 		return Item.getItemOf(block);
 	}
 
-	public int getDropData(IEnvironment env, BlockPosition pos) {
+	public int getDropData(IVirtualWorld env, BlockPosition pos) {
 		return getDropData(env.getType(pos));
 	}
 
@@ -85,7 +85,7 @@ public abstract class VirtualBlock<T extends Block> {
 		return data.getBlock().getDropData(data);
 	}
 
-	public AxisAlignedBB getCollisionBoundingBox(T block, IEnvironment env, BlockPosition pos, IBlockData state) {
+	public AxisAlignedBB getCollisionBoundingBox(T block, IVirtualWorld env, BlockPosition pos, IBlockData state) {
 		double minX = block.B();
 		double minY = block.D();
 		double minZ = block.F();
@@ -98,15 +98,15 @@ public abstract class VirtualBlock<T extends Block> {
 				(double) pos.getX() + maxX, (double) pos.getY() + maxY, (double) pos.getZ() + maxZ);
 	}
 
-	public boolean shouldRemainAt(IEnvironment env, BlockPosition pos) {
+	public boolean shouldRemainAt(IVirtualWorld env, BlockPosition pos) {
 		return false;
 	}
 
-	public void postPlace(T block, IEnvironment environment, BlockPosition blockposition, IBlockData iblockdata,
+	public void postPlace(T block, IVirtualWorld environment, BlockPosition blockposition, IBlockData iblockdata,
 			EntityLiving entityliving, ItemStack itemstack) {
 	}
 
-	public void postBreak(T block, IEnvironment environment, BlockPosition blockposition, IBlockData iblockdata) {
+	public void postBreak(T block, IVirtualWorld environment, BlockPosition blockposition, IBlockData iblockdata) {
 	}
 
 }

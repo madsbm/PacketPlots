@@ -6,6 +6,7 @@ import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.util.NumberConversions;
 
 import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.events.VirtualPlayerMoveEvent;
 import net.dashmc.plots.packets.PacketInterceptor;
 import net.dashmc.plots.plot.VirtualConnection;
@@ -19,6 +20,8 @@ import net.minecraft.server.v1_8_R3.PlayerConnection;
 @RequiredArgsConstructor
 public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFlying> {
 	private final CuboidRegion acDisabledRegion;
+	// calls the VirtualPlayerMoveEvent
+	private final EventDispatcher events;
 
 	@Override
 	public boolean intercept(PacketPlayInFlying packet, VirtualConnection connection) {
@@ -72,7 +75,7 @@ public class MovementPacketInterceptor extends PacketInterceptor<PacketPlayInFly
 			Location oldTo = to.clone();
 			VirtualPlayerMoveEvent event = new VirtualPlayerMoveEvent(bukkitPlayer, from, oldTo,
 					connection.getEnvironment());
-			connection.getEnvironment().getEvents().call(event);
+			events.call(event);
 
 			if (event.isCancelled()) {
 				player.playerConnection.sendPacket(new PacketPlayOutPosition(from.getX(), from.getY(), from.getZ(),

@@ -2,10 +2,13 @@ package net.dashmc.plots.plot.interaction;
 
 import org.bukkit.craftbukkit.v1_8_R3.util.CraftMagicNumbers;
 
+import lombok.RequiredArgsConstructor;
+import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.events.VirtualBlockCanBuildEvent;
 import net.dashmc.plots.plot.IEnvironment;
 import net.dashmc.plots.plot.IVirtualWorld;
 import net.dashmc.plots.plot.data.VirtualBlockRegistry;
+import net.dashmc.plots.utils.misc.Debug;
 import net.dashmc.plots.utils.misc.Utils;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.Block;
@@ -20,13 +23,17 @@ import net.minecraft.server.v1_8_R3.Material;
 /**
  * Whether a block may be placed at a position in a virtual environment.
  */
+@RequiredArgsConstructor
 public class PlacementRules {
+	private final VirtualBlockRegistry blocks;
+	// calls the VirtualBlockCanBuildEvent, which decides
+	private final EventDispatcher events;
+	private final Debug debug;
 
 	// https://github.com/Attano/Spigot-1.8/blob/9db48bc15e203179554b8d992ca6b0a528c8d300/net/minecraft/server/v1_8_R3/World.java#L2664
-	public static boolean isBuildable(IEnvironment env, Block block, BlockPosition pos, boolean ignoreCollision,
+	public boolean isBuildable(IEnvironment env, Block block, BlockPosition pos, boolean ignoreCollision,
 			EnumDirection dir, Entity entity, ItemStack itemStack) {
 		Block curr = env.getType(pos).getBlock();
-		VirtualBlockRegistry blocks = env.getBlockHandlers();
 		AxisAlignedBB bb = ignoreCollision ? null
 				: blocks.getBoundingBox(block, env, pos, block.getBlockData());
 
@@ -36,8 +43,8 @@ public class PlacementRules {
 		} else if (curr.getMaterial() == Material.ORIENTABLE && block == Blocks.ANVIL) {
 			defaultReturn = true;
 		} else {
-			env.getDebug().log(() -> "isReplaceable: " + curr.getMaterial().isReplaceable());
-			env.getDebug().log(() -> "mayPlace: " + blocks.mayPlace(block, env, pos, dir, itemStack) + " (pos: "
+			debug.log(() -> "isReplaceable: " + curr.getMaterial().isReplaceable());
+			debug.log(() -> "mayPlace: " + blocks.mayPlace(block, env, pos, dir, itemStack) + " (pos: "
 					+ pos.toString() + ")");
 
 			defaultReturn = curr.getMaterial().isReplaceable()
@@ -48,7 +55,7 @@ public class PlacementRules {
 		VirtualBlockCanBuildEvent event = new VirtualBlockCanBuildEvent(defaultReturn,
 				Utils.convertPosToLoc(env.getRealWorld(), pos),
 				org.bukkit.Material.getMaterial(CraftMagicNumbers.getId(curr)), env);
-		env.getEvents().call(event);
+		events.call(event);
 
 		return event.isBuildable();
 	}

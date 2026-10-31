@@ -10,7 +10,6 @@ import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
 import net.dashmc.plots.config.PlotConfig;
-import net.dashmc.plots.packets.PacketInjector;
 import net.dashmc.plots.plot.data.VirtualChunk;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.PacketPlayOutMapChunk;
@@ -24,25 +23,20 @@ public class EnvironmentManager {
 	private final EnvironmentStore store;
 	private final PlotConfig config;
 	private final EnvironmentContext context;
-	private final PacketInjector packets;
-	private final boolean forceChunkMapSend;
+	private final ConnectionFactory connectionFactory;
 	private final HashMap<UUID, CuboidEnvironment> environments = new HashMap<>();
 	private final HashMap<UUID, VirtualConnection> connections = new HashMap<>();
 
 	/**
-	 * @param context           what new environments are given
-	 * @param packets           puts the connections' packet handlers in the
-	 *                          players' pipelines
-	 * @param forceChunkMapSend whether connections render chunks before sending
-	 *                          them, see VirtualConnection#getRenderPacket
+	 * @param config  the world and region of new environments
+	 * @param context what new environments are given
 	 */
 	public EnvironmentManager(EnvironmentStore store, PlotConfig config, EnvironmentContext context,
-			PacketInjector packets, boolean forceChunkMapSend) {
+			ConnectionFactory connectionFactory) {
 		this.store = store;
 		this.config = config;
 		this.context = context;
-		this.packets = packets;
-		this.forceChunkMapSend = forceChunkMapSend;
+		this.connectionFactory = connectionFactory;
 	}
 
 	public IEnvironment get(Player player) {
@@ -139,8 +133,7 @@ public class EnvironmentManager {
 		if (environment == null)
 			return;
 
-		VirtualConnection connection = VirtualConnection.establish(((CraftPlayer) player).getHandle(), environment,
-				config.getSafeLocation(), packets, forceChunkMapSend);
+		VirtualConnection connection = connectionFactory.establish(((CraftPlayer) player).getHandle(), environment);
 		connections.put(player.getUniqueId(), connection);
 		environment.addViewer(connection);
 

@@ -1,17 +1,15 @@
 package net.dashmc.plots.plot;
 
-import java.util.List;
 import java.util.UUID;
 
-import net.dashmc.plots.events.EventDispatcher;
 import net.dashmc.plots.plot.data.BlockBag;
-import net.dashmc.plots.plot.data.VirtualBlockRegistry;
-import net.dashmc.plots.utils.CuboidRegion;
-import net.dashmc.plots.utils.misc.Debug;
-import net.minecraft.server.v1_8_R3.BlockPosition;
 import net.minecraft.server.v1_8_R3.EntityHuman;
-import net.minecraft.server.v1_8_R3.TileEntity;
 
+/**
+ * A player's environment as a whole: its blocks, how it's rendered, who owns it
+ * and who sees it. Code that only needs its blocks or its rendering takes an
+ * IVirtualWorld or an IRenderSource.
+ */
 public interface IEnvironment extends IVirtualWorld, IRenderSource {
 	UUID getOwnerUuid();
 
@@ -19,33 +17,14 @@ public interface IEnvironment extends IVirtualWorld, IRenderSource {
 		return getOwnerUuid().equals(human.getUniqueID());
 	}
 
+	/**
+	 * @return the items the owner got from the environment, such as broken blocks
+	 */
 	BlockBag getBlockBag();
-
-	/**
-	 * @return what calls the events of what happens in the environment
-	 */
-	EventDispatcher getEvents();
-
-	/**
-	 * @return how the environment's blocks behave
-	 */
-	VirtualBlockRegistry getBlockHandlers();
-
-	/**
-	 * @return where to log what happens in the environment, when debugging
-	 */
-	Debug getDebug();
 
 	void addViewer(VirtualConnection connection);
 
 	void removeViewer(VirtualConnection connection);
-
-	// only VirtualChunk uses these; the tile methods go with the duplicate tile list
-	CuboidRegion getRegion();
-
-	List<TileEntity> getTileEntities();
-
-	void setTileEntity(BlockPosition pos, TileEntity tile);
 
 	/**
 	 * Sends the environment's visitors back to their own environments. Use
